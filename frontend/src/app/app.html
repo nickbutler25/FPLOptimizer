@@ -1,0 +1,398 @@
+<div class="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
+  <div class="max-w-6xl mx-auto">
+    
+    <!-- Header -->
+    <header class="text-center mb-8">
+      <h1 class="text-4xl font-bold text-gray-800 mb-2">
+        ⚽ Fantasy Premier League Team Optimizer
+      </h1>
+      <p class="text-gray-600 mb-4">
+        Find the optimal FPL team within your budget using mathematical optimization
+      </p>
+      
+      <!-- Environment Indicator (Development only) -->
+      <div *ngIf="!config.isProduction" class="inline-block bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded-full text-sm">
+        🔧 {{ config.isProduction ? 'Production' : 'Development' }} Mode
+        <span *ngIf="config.shouldUseMockData" class="ml-2">📱 Mock Data</span>
+      </div>
+    </header>
+
+    <!-- System Status (if not healthy) -->
+    <div *ngIf="systemStatus && systemStatus !== 'healthy'" 
+         class="bg-orange-100 border border-orange-400 text-orange-800 px-4 py-3 rounded-lg mb-6">
+      <div class="flex items-center">
+        <span class="mr-2">⚠️</span>
+        <span>System Status: {{ systemStatus }}</span>
+        <span *ngIf="systemStatus === 'service_init_failed'" class="ml-2 text-sm">
+          - Please refresh the page
+        </span>
+      </div>
+    </div>
+
+    <!-- Service Status Warning -->
+    <div *ngIf="!servicesReady && !error" 
+         class="bg-yellow-50 border border-yellow-400 text-yellow-800 px-4 py-3 rounded-lg mb-6">
+      <div class="flex items-center">
+        <span class="mr-2">🔄</span>
+        <span>Loading application services...</span>
+      </div>
+    </div>
+
+    <!-- Error Display - MOVED TO TOP AND IMPROVED -->
+    <div *ngIf="error" class="bg-red-50 border-l-4 border-red-400 p-4 mb-8 animate-pulse">
+      <div class="flex items-start">
+        <div class="flex-shrink-0">
+          <span class="text-red-400 text-2xl">❌</span>
+        </div>
+        <div class="ml-3 flex-1">
+          <h3 class="text-lg font-semibold text-red-800 mb-2">Optimization Failed</h3>
+          <p class="text-red-700 mb-3">{{ error }}</p>
+          <div class="flex space-x-3">
+            <button 
+              (click)="error = null"
+              class="text-sm bg-red-100 hover:bg-red-200 text-red-800 px-3 py-1 rounded transition-colors"
+            >
+              Dismiss
+            </button>
+            <button 
+              (click)="retryOptimization()"
+              class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optimization Controls -->
+    <section class="bg-white rounded-lg shadow-lg p-6 mb-8">
+      <h2 class="text-2xl font-semibold mb-4 text-gray-800">Optimization Settings</h2>
+      
+      <form (ngSubmit)="optimizeTeam()" #optimizationForm="ngForm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          
+          <!-- Budget Input -->
+          <div>
+            <label for="budget" class="block text-sm font-medium text-gray-700 mb-2">
+              Budget (£ millions)
+            </label>
+            <input
+              id="budget"
+              name="budget"
+              type="number"
+              [(ngModel)]="budget"
+              [min]="budgetConstraints.MIN"
+              [max]="budgetConstraints.MAX"
+              [step]="budgetConstraints.STEP"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="100.0"
+              required
+              #budgetInput="ngModel"
+            >
+            <div *ngIf="budgetInput.invalid && budgetInput.touched" class="mt-1 text-sm text-red-600">
+              Budget must be between £{{ budgetConstraints.MIN }}m and £{{ budgetConstraints.MAX }}m
+            </div>
+            <div class="mt-1 text-xs text-gray-500">
+              Range: £{{ budgetConstraints.MIN }}m - £{{ budgetConstraints.MAX }}m
+            </div>
+          </div>
+          
+          <!-- Formation Selection -->
+          <div>
+            <label for="formation" class="block text-sm font-medium text-gray-700 mb-2">
+              Formation
+            </label>
+            <select
+              id="formation"
+              name="formation"
+              [(ngModel)]="formation"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            >
+              <option *ngFor="let f of formations" [value]="f">
+                {{ f }} ({{ getFormationDescription(f) }})
+              </option>
+            </select>
+            <div class="mt-1 text-xs text-gray-500">
+              {{ getFormationInfo(formation) }}
+            </div>
+          </div>
+        </div>
+        
+        <!-- Advanced Options (if enabled) -->
+        <div *ngIf="config.isAdvancedOptimizationEnabled" class="mb-6">
+          <button
+            type="button"
+            (click)="showAdvancedOptions = !showAdvancedOptions"
+            class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+          >
+            {{ showAdvancedOptions ? '🔽' : '🔷' }} Advanced Options
+          </button>
+          
+          <div *ngIf="showAdvancedOptions" class="mt-4 p-4 bg-gray-50 rounded-lg">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              <!-- Exclude Injured Players -->
+              <label class="flex items-center">
+                <input 
+                  type="checkbox" 
+                  [(ngModel)]="advancedOptions.excludeInjured"
+                  name="excludeInjured"
+                  class="mr-2"
+                >
+                <span class="text-sm">Exclude injured/doubtful players</span>
+              </label>
+              
+              <!-- Risk Tolerance -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Risk Tolerance</label>
+                <select 
+                  [(ngModel)]="advancedOptions.riskTolerance"
+                  name="riskTolerance"
+                  class="w-full px-3 py-1 border border-gray-300 rounded text-sm"
+                >
+                  <option value="conservative">Conservative</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="aggressive">Aggressive</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            [disabled]="!canOptimize"
+            class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 flex items-center"
+            [class.opacity-50]="!servicesReady"
+          >
+            <span *ngIf="!isOptimizing && servicesReady" class="mr-2">🔍</span>
+            <span *ngIf="isOptimizing" class="mr-2">⏳</span>
+            <span *ngIf="!servicesReady" class="mr-2">⚠️</span>
+            {{ 
+              !servicesReady ? 'Services Loading...' : 
+              isOptimizing ? 'Optimizing...' : 
+              'Optimize Team' 
+            }}
+          </button>
+          
+          <button
+            *ngIf="config.isAdvancedOptimizationEnabled && showAdvancedOptions"
+            type="button"
+            (click)="optimizeAdvanced()"
+            [disabled]="!canOptimize"
+            class="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+            [class.opacity-50]="!servicesReady"
+          >
+            🚀 Advanced Optimize
+          </button>
+          
+          <button
+            *ngIf="optimizationResult"
+            type="button"
+            (click)="clearResults()"
+            class="px-6 py-3 bg-gray-500 text-white font-semibold rounded-lg hover:bg-gray-600 transition-colors duration-200"
+          >
+            🗑️ Clear
+          </button>
+
+          <!-- Debug Button (Development only) -->
+          <button
+            *ngIf="!config.isProduction"
+            type="button"
+            (click)="logCurrentState()"
+            class="px-4 py-3 bg-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-400 transition-colors duration-200"
+          >
+            🐛 Debug State
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Loading State - IMPROVED WITH TIMEOUT INDICATOR -->
+    <div *ngIf="isOptimizing && !error" class="bg-white rounded-lg shadow-lg p-8 mb-8 text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <h3 class="text-lg font-semibold text-gray-800 mb-2">Optimizing Your Team...</h3>
+      <p class="text-gray-600 mb-4">This may take a few seconds</p>
+      <div class="mt-4 bg-gray-200 rounded-full h-2 mb-2">
+        <div class="bg-blue-600 h-2 rounded-full animate-pulse" style="width: 60%;"></div>
+      </div>
+      <!-- Timeout Warning -->
+      <div *ngIf="optimizationTimeoutWarning" class="mt-4 text-orange-600 text-sm">
+        ⏰ This is taking longer than usual. The optimization is still running...
+      </div>
+      <!-- Cancel Button -->
+      <button 
+        *ngIf="canCancelOptimization"
+        (click)="cancelOptimization()"
+        class="mt-4 px-4 py-2 text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 rounded transition-colors"
+      >
+        Cancel Optimization
+      </button>
+    </div>
+
+    <!-- Optimization Results -->
+    <div *ngIf="optimizationResult && optimizationResult.status === 'success'" 
+         class="bg-white rounded-lg shadow-lg p-6 mb-8">
+      
+      <!-- Results Header -->
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-semibold text-gray-800">🏆 Optimized Team</h2>
+        <div class="flex items-center space-x-4 text-sm text-gray-600">
+          <span>⏱️ {{ optimizationResult.optimization_time }}ms</span>
+          <span>🎯 {{ (optimizationResult.confidence_score || 0) * 100 | number:'1.0-0' }}% confidence</span>
+          <span>🧮 {{ optimizationResult.algorithm_used }}</span>
+        </div>
+      </div>
+      
+      <!-- Summary Stats -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg text-center">
+          <div class="text-2xl font-bold text-blue-600">{{ optimizationResult.total_points }}</div>
+          <div class="text-sm text-blue-800 font-medium">Total Points</div>
+        </div>
+        <div class="bg-green-50 border border-green-200 p-4 rounded-lg text-center">
+          <div class="text-2xl font-bold text-green-600">£{{ optimizationResult.total_cost?.toFixed(1) }}m</div>
+          <div class="text-sm text-green-800 font-medium">Total Cost</div>
+        </div>
+        <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg text-center">
+          <div class="text-2xl font-bold text-yellow-600">£{{ optimizationResult.remaining_budget?.toFixed(1) }}m</div>
+          <div class="text-sm text-yellow-800 font-medium">Remaining</div>
+        </div>
+        <div class="bg-purple-50 border border-purple-200 p-4 rounded-lg text-center">
+          <div class="text-2xl font-bold text-purple-600">{{ optimizationResult.formation }}</div>
+          <div class="text-sm text-purple-800 font-medium">Formation</div>
+        </div>
+      </div>
+
+      <!-- Warnings (if any) -->
+      <div *ngIf="optimizationResult.warnings && optimizationResult.warnings.length > 0" 
+           class="mb-6">
+        <h3 class="text-lg font-semibold text-orange-800 mb-3">⚠️ Warnings</h3>
+        <div class="space-y-2">
+          <div *ngFor="let warning of optimizationResult.warnings" 
+               class="flex items-start p-3 rounded-lg"
+               [ngClass]="{
+                 'bg-yellow-50 border border-yellow-200': warning.severity === 'low',
+                 'bg-orange-50 border border-orange-200': warning.severity === 'medium',
+                 'bg-red-50 border border-red-200': warning.severity === 'high'
+               }">
+            <span class="mr-2">
+              {{ warning.severity === 'high' ? '🚨' : warning.severity === 'medium' ? '⚠️' : '💡' }}
+            </span>
+            <div class="flex-1">
+              <span class="font-medium capitalize">{{ warning.severity }}</span>: {{ warning.message }}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Player Table -->
+      <div class="overflow-x-auto">
+        <h3 class="text-xl font-semibold mb-4 text-gray-800">📋 Selected Players</h3>
+        <table class="min-w-full divide-y divide-gray-200">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Points</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+              <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <tr *ngFor="let player of optimizationResult.players; trackBy: trackPlayer" 
+                class="hover:bg-gray-50 transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                      [ngClass]="{
+                        'bg-yellow-100 text-yellow-800': player.position === 'GKP',
+                        'bg-green-100 text-green-800': player.position === 'DEF',
+                        'bg-blue-100 text-blue-800': player.position === 'MID',
+                        'bg-red-100 text-red-800': player.position === 'FWD'
+                      }">
+                  {{ player.position }}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="font-medium text-gray-900">{{ player.name }}</div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ player.team }}</td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="font-semibold text-gray-900">£{{ player.cost }}m</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="font-semibold text-gray-900">{{ player.points }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="text-sm text-gray-600">{{ (player.points_per_cost || 0).toFixed(1) }}</span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs"
+                      [ngClass]="{
+                        'bg-green-100 text-green-800': player.injury_status === 'available',
+                        'bg-yellow-100 text-yellow-800': player.injury_status === 'doubtful',
+                        'bg-red-100 text-red-800': player.injury_status === 'injured' || player.injury_status === 'suspended'
+                      }">
+                  {{ player.injury_status || 'available' }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Team Statistics (if available) -->
+      <div *ngIf="teamStats" class="mt-8 pt-6 border-t border-gray-200">
+        <h3 class="text-xl font-semibold mb-4 text-gray-800">📊 Team Analysis</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          <!-- Value Metrics -->
+          <div class="bg-blue-50 p-4 rounded-lg">
+            <h4 class="font-semibold text-blue-800 mb-2">💰 Value Analysis</h4>
+            <div class="text-sm space-y-1">
+              <div>Points per £M: <span class="font-medium">{{ teamStats.value_metrics.points_per_million.toFixed(1) }}</span></div>
+              <div>Best Value: <span class="font-medium">{{ teamStats.value_metrics.best_value_player }}</span></div>
+              <div>Most Expensive: <span class="font-medium">{{ teamStats.value_metrics.most_expensive_player }}</span></div>
+            </div>
+          </div>
+          
+          <!-- Position Breakdown -->
+          <div class="bg-green-50 p-4 rounded-lg">
+            <h4 class="font-semibold text-green-800 mb-2">⚽ Position Breakdown</h4>
+            <div class="text-sm space-y-1">
+              <div>Goalkeepers: <span class="font-medium">{{ teamStats.players_count.GKP }}</span></div>
+              <div>Defenders: <span class="font-medium">{{ teamStats.players_count.DEF }}</span></div>
+              <div>Midfielders: <span class="font-medium">{{ teamStats.players_count.MID }}</span></div>
+              <div>Forwards: <span class="font-medium">{{ teamStats.players_count.FWD }}</span></div>
+            </div>
+          </div>
+          
+          <!-- Team Distribution -->
+          <div class="bg-purple-50 p-4 rounded-lg">
+            <h4 class="font-semibold text-purple-800 mb-2">🏟️ Team Distribution</h4>
+            <div class="text-sm space-y-1">
+              <div *ngFor="let dist of teamStats.team_distribution.slice(0, 3)" class="truncate">
+                {{ dist.team }}: <span class="font-medium">{{ dist.player_count }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center text-sm text-gray-500 mt-12">
+      <p>Fantasy Premier League Team Optimizer v{{ appVersion }}</p>
+      <p *ngIf="!config.isProduction" class="mt-1">
+        🔧 Running in {{ config.isProduction ? 'Production' : 'Development' }} mode
+        {{ config.shouldUseMockData ? 'with Mock Data' : 'with Live API' }}
+      </p>
+    </footer>
+  </div>
+</div>
