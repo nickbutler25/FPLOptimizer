@@ -1,78 +1,53 @@
-from backend.app.domain.interfaces.player_repository_interface import PlayerRepositoryInterface
+from typing import Optional, List, Dict
+import logging
+from datetime import datetime
+
+from app.domain.entities.player import Player
+from app.repositories.players.fpl_player_repository import FPLPlayerRepository
+from app.services.players.players_data_mapping_service import PlayersDataMappingService
+from app.services.players.players_filter_service import PlayerFilterService
 
 
 class PlayersBusinessService:
     """
-    Business service that works with any repository implementation.
-    Doesn't need to know if data comes from FPL API, database, or mock.
+    Business service that orchestrates data access and business logic
     """
 
-    def __init__(self, repository: PlayerRepositoryInterface):
-        self.repository = repository
+    def __init__(self, repository: FPLPlayerRepository):
+        self.repository = repository  # Pure data access
+        self.mapper = PlayersDataMappingService()  # Business mapping
+        self.filter_service = PlayerFilterService()  # Business filtering
         self.logger = logging.getLogger(__name__)
 
-    async def get_players(self, filters: Optional[Dict] = None) -> Dict[str, Any]:
-        """Get filtered list of players"""
-        try:
-            players = await self.repository.find_all(filters)
+    async def get_players(self, filters: Optional[Dict] = None) -> List[Player]:
+        """
+        Business method: Get players with business logic applied
+        """
+        # 1. Get raw data from repository (data access)
+        bootstrap_data = await self.repository.get_bootstrap_data()
 
-            # Apply any business-level filtering here
-            # (repository handles data source, service handles business logic)
+        # 2. Map to domain models (business logic)
+        players = self.mapper.map_bootstrap_to_players(bootstrap_data)
 
-            return {
-                "status": "success",
-                "players": [asdict(player) for player in players],
-                "total_count": len(players),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+        # 3. Apply business filters (business logic)
+        if filters:
+            players = self.filter_service.apply_filters(players, filters)
 
-        except Exception as e:
-            self.logger.error(f"Error in get_players: {str(e)}")
-            raise
+        # 4. Apply business validations (business logic)
+        valid_players = [p for p in players if self._is_valid_player(p)]
 
-    async def get_player(self, player_id: int) -> Dict[str, Any]:
-        """Get single player by ID"""
-        try:
-            player = await self.repository.find_by_id(player_id)
+        return valid_players
 
-            if not player:
-                return {
-                    "status": "error",
-                    "message": f"Player with ID {player_id} not found"
-                }
+    async def get_player(self, player_id: int) -> Optional[Player]:
+        """Get single player with business logic"""
+        players = await self.get_players()
+        return next((p for p in players if p.id == player_id), None)
 
-            return {
-                "status": "success",
-                "data": asdict(player),
-                "timestamp": datetime.utcnow().isoformat()
-            }
-
-        except Exception as e:
-            self.logger.error(f"Error in get_player: {str(e)}")
-            raise
-
-    async def refresh_data(self) -> Dict[str, Any]:
-        """Force refresh of data source"""
-        try:
-            success = await self.repository.refresh_data()
-            return {
-                "status": "success" if success else "error",
-                "message": "Data refreshed" if success else "Refresh failed",
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        except Exception as e:
-            self.logger.error(f"Error refreshing data: {str(e)}")
-            raise
-
-    async def health_check(self) -> Dict[str, Any]:
-        """Check health of underlying data source"""
-        try:
-            health_data = await self.repository.health_check()
-            health_data["timestamp"] = datetime.utcnow().isoformat()
-            return health_data
-        except Exception as e:
-            return {
-                "status": "error",
-                "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+    def _is_valid_player(self, player: Player) -> bool:
+        """Business rule: What constitutes a valid player"""
+        return (
+                player.id and player.id > 0 and
+                player.name and len(player.name.strip()) > 0 and
+                player.cost >= 3.0 and player.cost <= 15.0 and
+                player.points >= 0
+        )

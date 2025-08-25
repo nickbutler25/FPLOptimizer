@@ -1,0 +1,20 @@
+# ===== requirements-prod.txt =====
+# Production-Only Dependencies
+
+# Include base requirements
+-r requirements.txt
+
+# ===== PRODUCTION SERVERS =====
+gunicorn==21.2.0                   # Production WSGI server
+uvicorn[standard]==0.24.0          # ASGI server with all optimizations
+
+# ===== MONITORING & OBSERVABILITY =====
+prometheus-client==0.19.0          # Metrics collection
+sentry-sdk[fastapi]==1.38.0       # Error tracking and monitoring
+
+# ===== CACHING (Production) =====
+redis==5.0.1                       # Redis for production caching
+aioredis==2.0.1                    # Async Redis client
+
+# ===== SECURITY =====
+# python-jose[cryptography]==3.3.0 # JWT handling (if auth added)
