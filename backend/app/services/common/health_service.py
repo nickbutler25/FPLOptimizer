@@ -7,15 +7,14 @@ Centralized health checking logic with comprehensive system validation
 
 import asyncio
 import time
-import psutil
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 import logging
-
-from app.domain.interfaces.repositories import PlayerRepositoryInterface
+import psutil
+from app.domain.interfaces.player_repository_interface import PlayerRepositoryInterface
 from app.core.config import get_settings
 from app.core.exceptions import HealthCheckException, FPLAPIException
-from app.schemas.responses.health import (
+from app.schemas.responses.health_response import (
     HealthResponseDTO,
     StatusResponseDTO,
     ReadinessResponseDTO,

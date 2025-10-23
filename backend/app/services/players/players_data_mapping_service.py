@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, Optional
 
-from app.core import logging
+from app.core.logging import setup_logging, get_logger
 from app.domain.entities.player import Player
 from app.domain.enums.position import Position
 from app.domain.enums.injury_status import InjuryStatus
@@ -18,7 +18,7 @@ class PlayersDataMappingService:
     """
 
     def __init__(self):
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
     def map_bootstrap_to_players(self, bootstrap_data: Dict[str, Any]) -> List[Player]:
         """

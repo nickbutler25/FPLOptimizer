@@ -1,0 +1,281 @@
+# ===== PYTHON =====
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.coverage
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff (if you ever add Django)
+*.log
+local_settings.py
+db.sqlite3
+
+# Flask stuff (if you ever add Flask)
+instance/
+.webassets-cache
+
+# Scrapy stuff (if you ever add Scrapy)
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.envrc
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# ===== FASTAPI SPECIFIC =====
+# SQLite databases (if you use them)
+*.db
+*.sqlite
+*.sqlite3
+
+# Alembic (database migrations)
+alembic/versions/*.py
+!alembic/versions/
+
+# ===== DEVELOPMENT TOOLS =====
+# VS Code
+.vscode/
+*.code-workspace
+
+# PyCharm
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ===== OPERATING SYSTEM =====
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+
+# ===== LOGS AND DATA =====
+# Application logs
+logs/
+*.log
+log/
+
+# Data files
+data/
+datasets/
+*.csv
+*.json
+*.xml
+*.xlsx
+*.xls
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+*.save
+*.swp
+*.tmp
+
+# ===== SECURITY & SECRETS =====
+# Environment variables
+.env*
+!.env.example
+.envrc
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# API keys and secrets
+secrets/
+private/
+credentials/
+*.secret
+
+# ===== DOCKER =====
+# Don't ignore Dockerfile, but ignore runtime files
+.dockerignore
+docker-compose.override.yml
+
+# ===== CACHING & TEMPORARY FILES =====
+# Redis dumps
+dump.rdb
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Cache directories
+.cache/
+cache/
+
+# ===== MONITORING & PROFILING =====
+# Profiling data
+*.prof
+*.profile
+
+# Memory profiling
+*.memory_profile
+
+# ===== DOCUMENTATION =====
+# Auto-generated docs (keep source docs)
+docs/_build/
+docs/build/
+site/
+
+# ===== TESTING =====
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+test-reports/
+test-results/
+
+# Mock data (keep test fixtures)
+mock_data/
+sample_data/
+
+# ===== PROJECT SPECIFIC =====
+# Local configuration overrides
+local_settings.py
+local_config.py
+
+# Development databases
+dev.db
+development.sqlite
+
+# User-specific files
+user_data/
+uploads/
+
+# Runtime PID files
+*.pid
+
+# Socket files
+*.sock
+
+# ===== OPTIONAL: LARGE FILES =====
+# Uncomment if you have large model files, datasets, etc.
+# *.h5
+# *.pkl
+# *.pickle
+# *.joblib
+# models/
+# large_files/

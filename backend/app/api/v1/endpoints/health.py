@@ -8,7 +8,7 @@ from typing import Dict, Any
 import logging
 
 from app.api.dependencies import HealthServiceDep
-from app.schemas.responses.health import HealthResponseDTO, StatusResponseDTO
+from app.schemas.responses.health_response import HealthResponseDTO, StatusResponseDTO
 from app.core.exceptions import FPLAPIException, HealthCheckException
 
 # Create router

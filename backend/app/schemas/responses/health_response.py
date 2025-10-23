@@ -167,4 +167,4 @@ class MetricsResponseDTO(BaseModel):
                     "uptime_seconds": 86400
                 }
             }
-        }
+

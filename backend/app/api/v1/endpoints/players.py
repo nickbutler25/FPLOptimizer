@@ -6,8 +6,13 @@ from typing import Optional
 from fastapi import APIRouter, Query, Path, HTTPException, status
 import logging
 
-from app.api.dependencies import PlayersServiceDep
+from typing import Optional
+from fastapi import APIRouter, Query, Path, HTTPException, status
+import logging
 
+from app.api.dependencies import PlayersServiceDep
+from app.schemas.requests.players_request import GetPlayersRequestDTO
+from app.schemas.responses.players_response import PlayersResponseDTO, PlayerDetailResponseDTO
 from app.core.exceptions import ValidationError, PlayerNotFoundException, FPLAPIException
 
 # Create router
@@ -22,6 +27,9 @@ logger = logging.getLogger(__name__)
     description="Get a filtered list of players from the official FPL API."
 )
 async def get_players(
+        # Dependency injection - must come first (no default value)
+        service: PlayersServiceDep,
+
         # MINIMAL validation here - just HTTP parameter parsing
         positions: Optional[str] = Query(None, description="Comma-separated positions (GKP,DEF,MID,FWD)"),
         teams: Optional[str] = Query(None, description="Comma-separated team names"),
@@ -36,8 +44,7 @@ async def get_players(
         max_selected_percent: Optional[float] = Query(None, description="Maximum ownership %"),
         search_term: Optional[str] = Query(None, description="Search term"),
 
-        # Dependency injection
-        service: PlayersServiceDep
+
 ):
     """
     API Layer: Minimal validation, just HTTP parameter parsing and delegation to business layer
@@ -92,8 +99,8 @@ async def get_players(
 
 @router.get("/{player_id}", response_model=PlayerDetailResponseDTO)
 async def get_player(
-        player_id: int = Path(..., ge=1, description="Player ID"),
-        service: PlayersServiceDep
+        service: PlayersServiceDep,
+        player_id: int = Path(..., ge=1, description="Player ID")
 ):
     """
     API Layer: Minimal validation, delegate to business layer

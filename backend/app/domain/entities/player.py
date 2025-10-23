@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
 
-from backend.app.domain.enums.injury_status import InjuryStatus
-from backend.app.domain.enums.position import Position
+from app.domain.enums.injury_status import InjuryStatus
+from app.domain.enums.position import Position
 
 
 @dataclass
