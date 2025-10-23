@@ -256,6 +256,7 @@ sample_data/
 # Local configuration overrides
 local_settings.py
 local_config.py
+settings.local.json
 
 # Development databases
 dev.db

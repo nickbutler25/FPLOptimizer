@@ -1,1 +1,5 @@
 .idea/
+
+# VS Code settings
+.vscode/
+settings.local.json
