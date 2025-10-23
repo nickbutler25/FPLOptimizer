@@ -1,6 +1,6 @@
 # FPL Optimizer
 
-> A sophisticated web application that helps Fantasy Premier League users find the optimal team composition within budget constraints using mathematical optimization techniques.
+> A web application that helps Fantasy Premier League users find the optimal team composition within budget constraints using mathematical optimization techniques.
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-Latest-009688.svg)](https://fastapi.tiangolo.com/)
