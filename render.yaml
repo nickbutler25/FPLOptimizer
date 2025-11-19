@@ -1,38 +1,27 @@
 services:
-  # FastAPI Backend
   - type: web
     name: fpl-optimizer-api
-    runtime: python
+    env: python
     plan: free
-    buildCommand: "cd backend && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /api/v1/health
     envVars:
       - key: ENVIRONMENT
         value: production
       - key: DEBUG
-        value: False
+        value: false
       - key: LOG_LEVEL
         value: INFO
-      - key: PORT
-        value: 10000
       - key: SECRET_KEY
         generateValue: true
       - key: API_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        sync: false  # Set manually after frontend deployment
+        value: http://localhost:4200
       - key: FPL_API_BASE_URL
         value: https://fantasy.premierleague.com/api
       - key: FPL_API_TIMEOUT
-        value: 30
+        value: "30"
       - key: FPL_API_MAX_RETRIES
-        value: 3
-      - key: REDIS_HOST
-        value: localhost
-      - key: REDIS_PORT
-        value: 6379
-      - key: REDIS_DB
-        value: 0
-      - key: REDIS_CACHE_TTL
-        value: 300
+        value: "3"

@@ -1,7 +1,7 @@
 """Application configuration using Pydantic settings."""
 
-from typing import List
-from pydantic import Field
+from typing import List, Union
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -49,10 +49,19 @@ class Settings(BaseSettings):
     redis_cache_ttl: int = Field(default=300, alias="REDIS_CACHE_TTL")
 
     # CORS
-    cors_origins: List[str] = Field(
+    cors_origins: Union[List[str], str] = Field(
         default=["http://localhost:3000", "http://localhost:8000", "http://localhost:4200"],
         alias="CORS_ORIGINS",
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from comma-separated string or list."""
+        if isinstance(v, str):
+            # Split comma-separated string and strip whitespace
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v
 
     @property
     def is_production(self) -> bool:
