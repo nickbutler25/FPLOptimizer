@@ -8,6 +8,35 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38B2AC.svg)](https://tailwindcss.com/)
 
+## Live Application
+
+- **Frontend**: [https://fpl-optimizer-eight.vercel.app](https://fpl-optimizer-eight.vercel.app)
+- **Backend API**: [https://fpl-optimizer-api.onrender.com](https://fpl-optimizer-api.onrender.com)
+- **API Documentation**: [https://fpl-optimizer-api.onrender.com/docs](https://fpl-optimizer-api.onrender.com/docs)
+
+## Quick Start
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd FPLOptimizer
+
+# Backend setup
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+uvicorn app.main:app --reload
+
+# In a new terminal - Frontend setup
+cd frontend
+npm install
+ng serve
+```
+
+Visit `http://localhost:4200` to see the application!
+
 ---
 
 ## Table of Contents
@@ -59,18 +88,22 @@ Users input their budget and preferred formation, and the optimizer provides act
 
 - ✅ **Real-time FPL Data** - Live player statistics from official FPL API
 - ✅ **Advanced Filtering** - Filter by position, team, cost, form, minutes, ownership
-- ✅ **Smart Caching** - Configurable in-memory cache (1-hour TTL, Redis-ready)
+- ✅ **Team Management** - View and analyze FPL teams by entry ID
+- ✅ **Transfer Optimization** - Multi-week transfer planning using CVXPY optimization
+- ✅ **Fixture Analysis** - Expected points calculation based on upcoming fixture difficulty
+- ✅ **Smart Caching** - Redis-based caching with automatic invalidation
 - ✅ **Health Monitoring** - Comprehensive health checks for production deployments
 - ✅ **Responsive UI** - Modern Tailwind CSS design with Premier League branding
-- ✅ **Multi-Environment** - Dev/Staging/Production configurations
-- ✅ **Docker Support** - Containerized deployment ready
+- ✅ **Multi-Environment** - Dev/Staging/Production configurations with environment-specific builds
+- ✅ **Production Deployment** - Backend on Render, Frontend on Vercel
+- ✅ **Public API Access** - No authentication required for public endpoints
 
 ### Coming Soon
 
-- 🚧 **Optimization Algorithm** - Mathematical optimization engine for team selection
-- 🚧 **Formation Builder** - Interactive formation selector with constraints
-- 🚧 **Transfer Planner** - Multi-week transfer strategy optimization
-- 🚧 **Statistical Analysis** - Player trends, fixtures, and predictive analytics
+- 🚧 **Formation Builder** - Interactive formation selector with visual team builder
+- 🚧 **Statistical Analysis Dashboard** - Player trends, form analysis, and predictive analytics
+- 🚧 **Squad Comparison** - Compare multiple FPL teams side-by-side
+- 🚧 **Points Prediction** - Machine learning-based points forecasting
 
 ---
 
@@ -131,11 +164,13 @@ The project implements **Clean Architecture** with clear separation of concerns:
 | Framework | FastAPI | Modern async REST API framework |
 | Server | Uvicorn | ASGI server for async Python |
 | Validation | Pydantic v2 | Data validation and settings management |
-| HTTP Client | aiohttp, httpx | Async HTTP requests to FPL API |
-| Caching | cachetools | In-memory caching with TTL |
+| HTTP Client | httpx | Async HTTP requests to FPL API |
+| Optimization | CVXPY | Convex optimization for transfer planning |
+| Caching | Redis / aiocache | Distributed caching with TTL |
 | Logging | python-json-logger | Structured JSON logging |
 | Configuration | python-dotenv | Environment variable management |
 | Type Safety | typing-extensions | Python type hints |
+| Security | python-jose, passlib | JWT tokens and password hashing |
 
 ### Frontend
 
@@ -149,15 +184,17 @@ The project implements **Clean Architecture** with clear separation of concerns:
 | Testing | Jasmine + Karma | Unit and integration testing |
 | Build | Angular CLI | Development and production builds |
 
-### Infrastructure
+### Infrastructure & Deployment
 
 | Component | Technology |
 |-----------|-----------|
+| Backend Hosting | Render (Free Tier) |
+| Frontend Hosting | Vercel |
+| Caching | Redis (Render) |
 | Containerization | Docker + Docker Compose |
-| Version Control | Git |
+| Version Control | Git + GitHub |
+| CI/CD | Automatic deployment on push to main |
 | API Documentation | OpenAPI 3.0 (Swagger/ReDoc) |
-| Future Database | PostgreSQL (configured, not yet used) |
-| Future Cache | Redis (configured, not yet used) |
 
 ---
 
@@ -248,28 +285,23 @@ LOG_LEVEL=INFO
 # Server Configuration
 HOST=0.0.0.0
 PORT=8000
-RELOAD=true
+
+# Security
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # CORS Configuration
-CORS_ORIGINS=http://localhost:3000,http://localhost:4200,http://localhost:5000
+CORS_ORIGINS=http://localhost:4200,http://localhost:3000
 
 # FPL API Configuration
 FPL_API_BASE_URL=https://fantasy.premierleague.com/api
 FPL_API_TIMEOUT=30
 FPL_API_MAX_RETRIES=3
-FPL_CACHE_TTL=3600
 
-# Cache Configuration
-CACHE_ENABLED=true
-CACHE_TYPE=memory
-CACHE_TTL=3600
-
-# Optional: Redis (for production)
+# Cache Configuration (Redis)
 REDIS_URL=redis://localhost:6379
-REDIS_ENABLED=false
-
-# Optional: Database (for future features)
-DATABASE_URL=postgresql://user:password@localhost:5432/fpl_optimizer
+CACHE_TTL=3600
 ```
 
 #### 5. Start the Backend Server
@@ -291,16 +323,10 @@ The API will be available at:
 
 Open your browser and navigate to:
 ```
-http://localhost:8000/health
+http://localhost:8000/api/v1/health
 ```
 
-You should see:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2025-10-23T12:00:00Z"
-}
-```
+You should see a response indicating the health status of the API and its dependencies (FPL API, Redis cache, etc.).
 
 ---
 
@@ -322,23 +348,51 @@ npm install
 
 #### 3. Configure Environment (Optional)
 
-Edit environment files in `src/app/environments/`:
+Edit environment files in `src/environments/`:
 
 **`environment.ts` (Development):**
 ```typescript
-export const environment = {
+import { AppConfig } from "../app/config/app.config";
+
+export const environment: AppConfig = {
   production: false,
-  apiUrl: 'http://localhost:8000/api/v1',
-  useMockServices: false
+  api: {
+    baseUrl: 'http://localhost:8000/api/v1',
+    timeout: 30000,
+    retryAttempts: 3
+  },
+  features: {
+    enableAdvancedOptimization: true,
+    enablePlayerComparison: false,
+    enableMockData: false
+  },
+  logging: {
+    level: 'debug' as const,
+    enableConsoleLogging: true
+  }
 };
 ```
 
 **`environment.prod.ts` (Production):**
 ```typescript
-export const environment = {
+import { AppConfig } from "../app/config/app.config";
+
+export const environment: AppConfig = {
   production: true,
-  apiUrl: 'https://your-api-domain.com/api/v1',
-  useMockServices: false
+  api: {
+    baseUrl: 'https://fpl-optimizer-api.onrender.com/api/v1',
+    timeout: 30000,
+    retryAttempts: 3
+  },
+  features: {
+    enableAdvancedOptimization: true,
+    enablePlayerComparison: false,
+    enableMockData: false
+  },
+  logging: {
+    level: 'error' as const,
+    enableConsoleLogging: false
+  }
 };
 ```
 
@@ -428,7 +482,7 @@ http://localhost:8000
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `GET` | `/` | API root with information and available endpoints |
-| `GET` | `/health` | Simple health check |
+| `GET` | `/api/v1/health` | Comprehensive health check (all systems) |
 
 #### Players API (`/api/v1/players`)
 
@@ -436,6 +490,16 @@ http://localhost:8000
 |--------|----------|-------------|
 | `GET` | `/api/v1/players` | Get filtered list of players |
 | `GET` | `/api/v1/players/{id}` | Get specific player by ID |
+| `GET` | `/api/v1/players/top/points` | Get top performing players by total points |
+| `GET` | `/api/v1/players/fixtures/upcoming` | Get all players with expected points for next 5 gameweeks |
+
+#### Teams API (`/api/v1/teams`)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/teams/{team_id}` | Get FPL team data by entry ID |
+| `GET` | `/api/v1/teams/{team_id}/summary` | Get team summary with key statistics |
+| `POST` | `/api/v1/teams/{team_id}/transfer-plan` | Generate optimal transfer plan for N gameweeks |
 
 **Query Parameters for `/api/v1/players`:**
 
@@ -641,48 +705,55 @@ LOG_LEVEL=INFO
 # Server
 HOST=0.0.0.0
 PORT=8000
-RELOAD=true
+
+# Security
+SECRET_KEY=your-secret-key-here-change-in-production
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:4200
+CORS_ORIGINS=http://localhost:4200,http://localhost:3000
 
 # FPL API
 FPL_API_BASE_URL=https://fantasy.premierleague.com/api
 FPL_API_TIMEOUT=30
 FPL_API_MAX_RETRIES=3
-FPL_CACHE_TTL=3600
 
-# Cache
-CACHE_ENABLED=true
-CACHE_TYPE=memory
-CACHE_TTL=3600
-
-# Optional: Redis
+# Cache (Redis)
 REDIS_URL=redis://localhost:6379
-REDIS_ENABLED=false
-
-# Optional: Database
-DATABASE_URL=postgresql://user:password@localhost:5432/fpl_optimizer
+CACHE_TTL=3600
 ```
 
 ### Frontend Configuration
 
 **Environment Files:**
 
-- `src/app/environments/environment.ts` - Development
-- `src/app/environments/environment.staging.ts` - Staging
-- `src/app/environments/environment.prod.ts` - Production
+- `src/environments/environment.ts` - Development
+- `src/environments/environment.staging.ts` - Staging
+- `src/environments/environment.prod.ts` - Production
 
-**Configuration Options:**
+**Configuration Structure:**
 
 ```typescript
-{
+import { AppConfig } from "../app/config/app.config";
+
+export const environment: AppConfig = {
   production: false,
-  apiUrl: 'http://localhost:8000/api/v1',
-  useMockServices: false,
-  enableAnalytics: false,
-  logLevel: 'debug'
-}
+  api: {
+    baseUrl: 'http://localhost:8000/api/v1',
+    timeout: 30000,
+    retryAttempts: 3
+  },
+  features: {
+    enableAdvancedOptimization: true,
+    enablePlayerComparison: false,
+    enableMockData: false
+  },
+  logging: {
+    level: 'debug',
+    enableConsoleLogging: true
+  }
+};
 ```
 
 ---
@@ -821,58 +892,100 @@ ng test --code-coverage
 
 ## Deployment
 
-### Production Build
+The application is deployed using modern cloud platforms with automatic CI/CD:
 
-#### Backend
+### Production Deployment
+
+#### Backend (Render)
+
+The backend API is deployed on Render using the `render.yaml` configuration:
+
+```yaml
+services:
+  - type: web
+    name: fpl-optimizer-api
+    env: python
+    plan: free
+    buildCommand: cd backend && pip install -r requirements.txt
+    startCommand: cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/v1/health
+```
+
+**Environment Variables (set in Render dashboard):**
+- `ENVIRONMENT=production`
+- `DEBUG=false`
+- `LOG_LEVEL=INFO`
+- `SECRET_KEY` (auto-generated)
+- `CORS_ORIGINS=https://fpl-optimizer-eight.vercel.app,http://localhost:4200`
+- `FPL_API_BASE_URL=https://fantasy.premierleague.com/api`
+- Redis URL for caching
+
+**Deployment:**
+- Automatic deployment on push to `main` branch
+- Health checks at `/api/v1/health`
+- Free tier includes 750 hours/month
+
+#### Frontend (Vercel)
+
+The frontend is deployed on Vercel using the `vercel.json` configuration:
+
+```json
+{
+  "buildCommand": "npm run build:prod",
+  "outputDirectory": "dist/frontend/browser",
+  "framework": "angular"
+}
+```
+
+**Deployment:**
+- Automatic deployment on push to `main` branch
+- Environment-specific builds using Angular configurations
+- CDN distribution with edge caching
+
+### Manual Deployment
+
+#### Backend (Docker)
 
 ```bash
 cd backend
 
-# Install production dependencies only
-pip install -r requirements-prod.txt
+# Build Docker image
+docker build -t fpl-optimizer-backend .
 
-# Set environment to production
-export ENVIRONMENT=production
-export DEBUG=false
-
-# Run with Gunicorn (production server)
-gunicorn app.main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+# Run container
+docker run -p 8000:8000 \
+  -e ENVIRONMENT=production \
+  -e DEBUG=false \
+  fpl-optimizer-backend
 ```
 
-#### Frontend
+#### Frontend (Static Hosting)
 
 ```bash
 cd frontend
 
 # Build for production
-ng build --configuration production
+npm run build:prod
 
-# Output will be in dist/ directory
-# Serve with any static file server (nginx, Apache, etc.)
+# Output in dist/frontend/browser/
+# Deploy to any static hosting service
 ```
 
-### Docker Deployment
+### Environment Configuration
 
-```bash
-# Build images
-docker-compose build
+**Backend Production Variables:**
+- `ENVIRONMENT=production`
+- `DEBUG=false`
+- `LOG_LEVEL=INFO`
+- `CORS_ORIGINS` - Include all frontend domains
+- `REDIS_URL` - For production caching
+- `SECRET_KEY` - For JWT tokens
 
-# Run in production mode
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-### Environment Variables for Production
-
-**Backend:**
-- Set `ENVIRONMENT=production`
-- Set `DEBUG=false`
-- Configure proper `DATABASE_URL`
-- Configure proper `REDIS_URL`
-- Set secure `CORS_ORIGINS`
-
-**Frontend:**
-- Build with `--configuration production`
-- Update `environment.prod.ts` with production API URL
+**Frontend Production Variables:**
+- Set in `src/environments/environment.prod.ts`
+- `production: true`
+- `api.baseUrl: 'https://fpl-optimizer-api.onrender.com/api/v1'`
+- `features.enableMockData: false`
 
 ---
 
@@ -919,16 +1032,34 @@ For questions or issues:
 
 ---
 
+## Security & Authentication
+
+The FPL Optimizer API uses a **public API model** for read-only endpoints:
+
+- ✅ **Public Endpoints**: `/players`, `/teams` endpoints are accessible without authentication
+- ✅ **CORS Protection**: Configured to allow requests from authorized frontend domains
+- ✅ **Rate Limiting**: Built-in throttling via Render free tier limits
+- ✅ **Security Headers**: X-Content-Type-Options, X-Frame-Options, HSTS
+- 🔐 **Future**: User authentication for saved teams and preferences using JWT tokens
+
+This approach is appropriate for a public-facing application that uses publicly available FPL data.
+
+---
+
 ## Roadmap
 
-- [ ] Complete optimization algorithm implementation
-- [ ] Add transfer planning functionality
-- [ ] Implement user authentication and saved teams
-- [ ] Add fixture difficulty rating integration
-- [ ] Build statistical analysis dashboard
-- [ ] Create mobile-responsive Progressive Web App (PWA)
-- [ ] Add Redis caching in production
-- [ ] Implement PostgreSQL for user data persistence
+- [x] ✅ Transfer optimization using CVXPY
+- [x] ✅ Fixture difficulty analysis and expected points calculation
+- [x] ✅ Production deployment (Render + Vercel)
+- [x] ✅ Redis caching in production
+- [ ] 🚧 Interactive formation builder with drag-and-drop
+- [ ] 🚧 User authentication and saved teams (JWT-based)
+- [ ] 🚧 Historical performance tracking and analytics
+- [ ] 🚧 Machine learning-based points prediction
+- [ ] 🚧 Progressive Web App (PWA) for mobile
+- [ ] 🚧 PostgreSQL for user data persistence
+- [ ] 🚧 Real-time price change alerts
+- [ ] 🚧 League mini-leagues comparison
 
 ---
 
