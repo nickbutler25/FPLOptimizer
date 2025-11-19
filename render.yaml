@@ -18,7 +18,7 @@ services:
       - key: API_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: http://localhost:4200
+        value: https://fpl-optimizer-eight.vercel.app,http://localhost:4200
       - key: FPL_API_BASE_URL
         value: https://fantasy.premierleague.com/api
       - key: FPL_API_TIMEOUT
