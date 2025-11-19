@@ -12,7 +12,6 @@ from app.schemas.responses import (
     WeeklyTransferSolution,
     TransferRecommendation,
 )
-from app.core.security import verify_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +24,6 @@ router = APIRouter()
     response_model_by_alias=False,  # Use field names, not aliases
     summary="Get Team by ID",
     description="Retrieve FPL team data by team entry ID",
-    dependencies=[Depends(verify_api_key)],
     tags=["Teams"],
 )
 async def get_team(
@@ -62,7 +60,6 @@ async def get_team(
     response_model_by_alias=False,  # Use field names, not aliases
     summary="Get Team Summary",
     description="Get team summary with key statistics",
-    dependencies=[Depends(verify_api_key)],
     tags=["Teams"],
 )
 async def get_team_summary(
@@ -95,7 +92,6 @@ async def get_team_summary(
     response_model_by_alias=False,
     summary="Generate Transfer Plan",
     description="Generate optimal transfer plan for N gameweeks using CVXPY",
-    dependencies=[Depends(verify_api_key)],
     tags=["Teams", "Transfers"],
 )
 async def generate_transfer_plan(

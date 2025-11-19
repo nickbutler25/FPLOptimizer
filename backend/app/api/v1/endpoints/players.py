@@ -8,7 +8,6 @@ from app.api.dependencies import PlayerServiceDep
 from app.schemas.responses import PlayersResponse, BaseResponse
 from app.models.player import Player
 from app.models.player_with_fixtures import PlayerWithFixtures
-from app.core.security import verify_api_key
 from app.core.container import container
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,6 @@ router = APIRouter()
     response_model=PlayersResponse,
     summary="Get All Players",
     description="Retrieve all available FPL players with optional filters",
-    dependencies=[Depends(verify_api_key)],
     tags=["Players"],
 )
 async def get_all_players(
@@ -74,7 +72,6 @@ async def get_all_players(
     response_model=BaseResponse[Player],
     summary="Get Player by ID",
     description="Retrieve a specific player by their ID",
-    dependencies=[Depends(verify_api_key)],
     tags=["Players"],
 )
 async def get_player_by_id(
@@ -106,7 +103,6 @@ async def get_player_by_id(
     response_model=PlayersResponse,
     summary="Get Top Players by Points",
     description="Get the top performing players by total points",
-    dependencies=[Depends(verify_api_key)],
     tags=["Players"],
 )
 async def get_top_players(
@@ -138,7 +134,6 @@ async def get_top_players(
     response_model=BaseResponse[List[PlayerWithFixtures]],
     summary="Get All Players with Upcoming Fixture Difficulty",
     description="Retrieve all players with expected points for the next 5 gameweeks",
-    dependencies=[Depends(verify_api_key)],
     tags=["Players"],
 )
 async def get_players_with_upcoming_fixtures(
