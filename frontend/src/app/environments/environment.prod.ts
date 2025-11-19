@@ -3,7 +3,7 @@ import { AppConfig } from "../config/app.config";
 export const environment: AppConfig = {
   production: true,
   api: {
-    baseUrl: 'https://your-backend.up.railway.app/api/v1',  // TODO: Replace with your Railway URL after deployment
+    baseUrl: 'https://your-backend.onrender.com/api/v1',  // TODO: Replace with your Render URL after deployment
     timeout: 30000,
     retryAttempts: 3
   },
