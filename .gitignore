@@ -3,3 +3,10 @@
 # VS Code settings
 .vscode/
 settings.local.json
+
+# Windows reserved names
+nul
+CON
+PRN
+AUX
+NUL

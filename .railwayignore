@@ -1,0 +1,12 @@
+# Ignore frontend files to speed up backend deployment
+frontend/
+node_modules/
+*.md
+.git/
+.vscode/
+.idea/
+
+# Keep deployment configs
+!railway.toml
+!nixpacks.toml
+!DEPLOYMENT.md

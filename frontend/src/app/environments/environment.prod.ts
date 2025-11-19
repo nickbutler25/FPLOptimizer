@@ -1,19 +1,19 @@
 import { AppConfig } from "../config/app.config";
 
-export const environment = {
+export const environment: AppConfig = {
   production: true,
   api: {
-    baseUrl: 'https://api.fploptimizer.com/api',
-    timeout: 15000,
-    retryAttempts: 2
+    baseUrl: 'https://your-backend.up.railway.app/api/v1',  // TODO: Replace with your Railway URL after deployment
+    timeout: 30000,
+    retryAttempts: 3
   },
   features: {
     enableAdvancedOptimization: true,
-    enablePlayerComparison: true,
+    enablePlayerComparison: false,
     enableMockData: false
   },
   logging: {
-    level: 'error',
+    level: 'error' as const,
     enableConsoleLogging: false
   }
 };
