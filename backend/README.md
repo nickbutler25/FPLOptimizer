@@ -1,601 +1,241 @@
-# FPL Optimizer - Backend API
+# FPL Optimizer API
 
-> FastAPI-based REST API for Fantasy Premier League optimization with Clean Architecture
+A professional FastAPI REST API for Fantasy Premier League data optimization.
 
----
+## Features
 
-## Overview
+- **RESTful API**: Well-structured endpoints following REST principles
+- **Dependency Injection**: Clean architecture using dependency-injector
+- **Logging**: Structured JSON logging for production environments
+- **Authentication**: API key-based authentication for secure access
+- **Caching**: Redis caching for improved performance
+- **Error Handling**: Comprehensive error handling with custom exceptions
+- **Type Safety**: Full type hints with Pydantic models
+- **Docker Support**: Containerized deployment with Docker and docker-compose
+- **Auto Documentation**: Interactive API docs with Swagger UI and ReDoc
 
-The backend is a modern, async-first REST API built with FastAPI that provides:
+## API Endpoints
 
-- Real-time player data from the official FPL API
-- Advanced filtering and search capabilities
-- Smart caching with configurable TTL
-- Comprehensive health monitoring
-- OpenAPI/Swagger documentation
-- Clean Architecture with clear separation of concerns
+### Health
+- `GET /api/v1/health` - Health check endpoint
 
----
+### Players
+- `GET /api/v1/players` - Get all FPL players with optional filters
+  - Query params: `position`, `team_id`, `min_cost`, `max_cost`
+- `GET /api/v1/players/{player_id}` - Get specific player by ID
+- `GET /api/v1/players/top/points` - Get top players by total points
+  - Query params: `limit` (default: 10)
 
-## Architecture
-
-```
-API Layer (FastAPI)
-    ├── Endpoints (HTTP handlers)
-    ├── Request/Response DTOs
-    └── Middleware & Exception Handling
-         ↓
-Business Logic Layer
-    ├── Data Mapping Service
-    ├── Filtering Service
-    └── Validation & Business Rules
-         ↓
-Repository Layer
-    ├── FPL API Client (with caching)
-    ├── Retry Logic
-    └── Data Access Abstraction
-         ↓
-Domain Layer
-    ├── Entities (Player, etc.)
-    ├── Enums (Position, InjuryStatus)
-    └── Repository Interfaces
-         ↓
-External Data Source (FPL API)
-```
-
----
-
-## Prerequisites
-
-- **Python 3.11+**
-- **pip** (comes with Python)
-- **virtualenv** (recommended)
-
----
+### Teams
+- `GET /api/v1/teams/{team_id}` - Get FPL team by entry ID
+  - Query params: `include_picks` (default: true)
+- `GET /api/v1/teams/{team_id}/summary` - Get team summary with key statistics
 
 ## Quick Start
 
-### 1. Create Virtual Environment
+### Prerequisites
+
+- Python 3.11+
+- Redis (optional, for caching)
+- Docker & Docker Compose (for containerized deployment)
+
+### Local Development
+
+1. **Clone and navigate to backend directory:**
+   ```bash
+   cd backend
+   ```
+
+2. **Create virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Configure environment:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings
+   ```
+
+5. **Run the application:**
+   ```bash
+   python -m app.main
+   ```
+
+6. **Access the API:**
+   - API: http://localhost:8000
+   - Swagger UI: http://localhost:8000/docs
+   - ReDoc: http://localhost:8000/redoc
+
+### Docker Deployment
+
+1. **Build and run with Docker Compose:**
+   ```bash
+   docker-compose up --build
+   ```
+
+2. **Access the API:**
+   - API: http://localhost:8000
+
+## Configuration
+
+All configuration is managed through environment variables. Copy `.env.example` to `.env` and customize:
 
 ```bash
-# Windows
-python -m venv venv
-venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 2. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-For development (includes testing and linting tools):
-```bash
-pip install -r requirements-dev.txt
-```
-
-### 3. Configure Environment
-
-Create a `.env` file in the `backend/` directory:
-
-```env
-# Application
+# Application Settings
 APP_NAME=FPL Optimizer API
-APP_VERSION=1.0.0
 ENVIRONMENT=development
 DEBUG=true
 LOG_LEVEL=INFO
 
-# Server
-HOST=0.0.0.0
-PORT=8000
-RELOAD=true
-
-# CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:4200,http://localhost:5000
+# Security
+SECRET_KEY=your-secret-key-here
+API_KEY=your-api-key-here
 
 # FPL API
 FPL_API_BASE_URL=https://fantasy.premierleague.com/api
 FPL_API_TIMEOUT=30
-FPL_API_MAX_RETRIES=3
-FPL_CACHE_TTL=3600
 
-# Cache
-CACHE_ENABLED=true
-CACHE_TYPE=memory
-CACHE_TTL=3600
-
-# Optional: Redis
-REDIS_URL=redis://localhost:6379
-REDIS_ENABLED=false
-
-# Optional: Database
-DATABASE_URL=postgresql://user:password@localhost:5432/fpl_optimizer
+# Redis Cache
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_CACHE_TTL=300
 ```
 
-### 4. Run the Server
+## Authentication
+
+All endpoints (except `/health`) require API key authentication. Include the API key in the request header:
 
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+curl -H "X-API-Key: your-api-key-here" http://localhost:8000/api/v1/players
 ```
 
-The API will be available at:
-- **API:** http://localhost:8000
-- **Swagger UI:** http://localhost:8000/docs
-- **ReDoc:** http://localhost:8000/redoc
+## Example Usage
 
----
+### Get All Players
+```bash
+curl -H "X-API-Key: your-api-key-here" \
+  "http://localhost:8000/api/v1/players"
+```
 
-## Project Structure
+### Get Players by Position
+```bash
+curl -H "X-API-Key: your-api-key-here" \
+  "http://localhost:8000/api/v1/players?position=Midfielder&min_cost=5.0&max_cost=10.0"
+```
+
+### Get Team by ID
+```bash
+curl -H "X-API-Key: your-api-key-here" \
+  "http://localhost:8000/api/v1/teams/123456"
+```
+
+### Get Top Players
+```bash
+curl -H "X-API-Key: your-api-key-here" \
+  "http://localhost:8000/api/v1/players/top/points?limit=20"
+```
+
+## Architecture
 
 ```
 backend/
 ├── app/
-│   ├── main.py                       # Application entry point
-│   ├── api/                          # API Layer
+│   ├── api/              # API layer
 │   │   ├── v1/
-│   │   │   ├── endpoints/
-│   │   │   │   ├── players.py        # Players API endpoints
-│   │   │   │   └── health.py         # Health check endpoints
-│   │   │   └── router.py             # API v1 router
-│   │   ├── dependencies.py           # Shared dependencies
-│   │   ├── exceptions.py             # Exception handlers
-│   │   └── middleware.py             # API middleware
-│   ├── core/                         # Core Configuration
-│   │   ├── config.py                 # Settings management (Pydantic)
-│   │   ├── container.py              # Dependency injection
-│   │   ├── exceptions.py             # Custom exceptions
-│   │   ├── logging.py                # Logging setup
-│   │   ├── middleware.py             # Core middleware
-│   │   └── security.py               # Security utilities
-│   ├── domain/                       # Domain Layer
-│   │   ├── entities/
-│   │   │   └── player.py             # Player domain entity
-│   │   ├── enums/
-│   │   │   ├── position.py           # Position enum
-│   │   │   ├── injury_status.py      # Injury status enum
-│   │   │   └── api_status.py         # API status enum
-│   │   └── interfaces/
-│   │       └── player_repository_interface.py
-│   ├── repositories/                 # Data Access Layer
-│   │   ├── players/
-│   │   │   ├── fpl_player_repository.py      # FPL API integration
-│   │   │   ├── mock_players_repository.py    # Mock data (testing)
-│   │   │   └── __init__.py
-│   │   └── repository_factory.py
-│   ├── services/                     # Business Logic Layer
-│   │   ├── players/
-│   │   │   ├── players_business_service.py   # Orchestration
-│   │   │   ├── players_data_mapping_service.py # Data mapping
-│   │   │   ├── players_filter_service.py     # Filtering logic
-│   │   │   └── __init__.py
-│   │   ├── common/
-│   │   │   └── health_service.py
-│   │   └── __init__.py
-│   └── schemas/                      # DTOs
-│       ├── requests/
-│       │   └── players_request.py
-│       ├── responses/
-│       │   ├── players_response.py
-│       │   ├── health_response.py
-│       │   └── common_response.py
-│       └── internal/
-│           ├── filters.py
-│           └── cache.py
-├── tests/                            # Test suite
-├── .env                              # Environment variables
-├── .env.example                      # Environment template
-├── .gitignore
+│   │   │   ├── endpoints/  # API endpoints
+│   │   │   └── router.py   # API router
+│   │   ├── dependencies.py # FastAPI dependencies
+│   │   └── middleware.py   # Custom middleware
+│   ├── core/             # Core configuration
+│   │   ├── config.py       # Settings management
+│   │   ├── container.py    # DI container
+│   │   ├── exceptions.py   # Custom exceptions
+│   │   ├── logging.py      # Logging setup
+│   │   └── security.py     # Authentication
+│   ├── infrastructure/   # Infrastructure layer
+│   │   ├── cache/          # Cache implementations
+│   │   └── http/           # HTTP clients
+│   ├── models/           # Domain models
+│   ├── repositories/     # Data access layer
+│   ├── schemas/          # API schemas
+│   ├── services/         # Business logic layer
+│   └── main.py          # Application entry point
 ├── Dockerfile
 ├── docker-compose.yml
-├── Makefile
-├── requirements.txt                  # Production dependencies
-├── requirements-dev.txt              # Development dependencies
-├── requirements-prod.txt
-├── pyproject.toml
-└── setup.py
+├── requirements.txt
+└── README.md
 ```
 
----
+## Technology Stack
 
-## API Endpoints
-
-### Root Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | API root information |
-| `GET` | `/health` | Simple health check |
-
-### Players API
-
-**Base Path:** `/api/v1/players`
-
-#### Get All Players (with filters)
-
-```http
-GET /api/v1/players
-```
-
-**Query Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `positions` | string[] | Filter by position (GKP, DEF, MID, FWD) |
-| `teams` | string[] | Filter by team name |
-| `min_cost` | float | Minimum player cost (£M) |
-| `max_cost` | float | Maximum player cost (£M) |
-| `min_points` | int | Minimum total points |
-| `max_points` | int | Maximum total points |
-| `min_form` | float | Minimum form rating |
-| `available_only` | bool | Only available players (not injured) |
-| `min_minutes` | int | Minimum minutes played |
-| `min_selected_percent` | float | Minimum ownership % |
-| `max_selected_percent` | float | Maximum ownership % |
-| `search_term` | string | Search player names |
-
-**Example Request:**
-
-```bash
-curl "http://localhost:8000/api/v1/players?positions=FWD&min_cost=5.0&max_cost=10.0&available_only=true"
-```
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "players": [
-    {
-      "id": 123,
-      "name": "Example Player",
-      "web_name": "Player",
-      "team": "Arsenal",
-      "position": "FWD",
-      "cost": 8.5,
-      "total_points": 150,
-      "points_per_game": 5.2,
-      "form": 7.8,
-      "minutes": 1350,
-      "goals_scored": 12,
-      "assists": 5,
-      "clean_sheets": 0,
-      "selected_by_percent": 45.3,
-      "injury_status": "Available"
-    }
-  ],
-  "total_count": 1,
-  "filters_applied": {
-    "positions": ["FWD"],
-    "min_cost": 5.0,
-    "max_cost": 10.0,
-    "available_only": true
-  },
-  "data_source": "FPL_API",
-  "cache_hit": false
-}
-```
-
-#### Get Single Player
-
-```http
-GET /api/v1/players/{player_id}
-```
-
-**Path Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `player_id` | int | FPL Player ID |
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "player": {
-    "id": 123,
-    "name": "Example Player",
-    ...
-  }
-}
-```
-
-### Health Check API
-
-**Base Path:** `/api/v1/health`
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/health/` | Comprehensive health check |
-| `GET` | `/api/v1/health/simple` | Simple health check |
-| `GET` | `/api/v1/health/status` | Detailed status info |
-| `GET` | `/api/v1/health/ready` | Kubernetes readiness probe |
-| `GET` | `/api/v1/health/live` | Kubernetes liveness probe |
-| `GET` | `/api/v1/health/metrics` | Prometheus metrics |
-
----
-
-## Configuration
-
-### Environment Variables
-
-**Required:**
-
-- `APP_NAME` - Application name
-- `FPL_API_BASE_URL` - FPL API base URL (default: https://fantasy.premierleague.com/api)
-
-**Optional:**
-
-- `DEBUG` - Enable debug mode (default: false)
-- `LOG_LEVEL` - Logging level (default: INFO)
-- `HOST` - Server host (default: 0.0.0.0)
-- `PORT` - Server port (default: 8000)
-- `CORS_ORIGINS` - Allowed CORS origins (comma-separated)
-- `CACHE_ENABLED` - Enable caching (default: true)
-- `CACHE_TYPE` - Cache type: memory or redis (default: memory)
-- `CACHE_TTL` - Cache TTL in seconds (default: 3600)
-- `REDIS_URL` - Redis connection URL
-- `DATABASE_URL` - PostgreSQL connection URL
-
-### Configuration via Pydantic
-
-Settings are managed via Pydantic models in [app/core/config.py](app/core/config.py):
-
-```python
-from pydantic_settings import BaseSettings
-
-class Settings(BaseSettings):
-    app_name: str = "FPL Optimizer API"
-    debug: bool = False
-    log_level: str = "INFO"
-
-    class Config:
-        env_file = ".env"
-```
-
----
+- **FastAPI**: Modern, fast web framework
+- **Pydantic**: Data validation using Python type hints
+- **httpx**: Async HTTP client for external API calls
+- **dependency-injector**: Dependency injection framework
+- **Redis**: In-memory caching
+- **python-jose**: JWT token handling
+- **tenacity**: Retry logic for resilient API calls
+- **python-json-logger**: Structured logging
 
 ## Development
 
-### Run with Auto-Reload
-
+### Install Development Dependencies
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+pip install -r requirements-dev.txt
 ```
 
 ### Run Tests
-
 ```bash
 pytest
 ```
 
-With coverage:
-```bash
-pytest --cov=app --cov-report=html
-```
-
-### Code Quality
-
-**Linting:**
-```bash
-pylint app/
-```
-
-**Type Checking:**
-```bash
-mypy app/
-```
-
-**Format Code:**
+### Code Formatting
 ```bash
 black app/
 ```
 
-**Sort Imports:**
+### Linting
 ```bash
-isort app/
+ruff check app/
 ```
 
-### Using Makefile
-
+### Type Checking
 ```bash
-make run       # Start development server
-make test      # Run tests
-make lint      # Run linters
-make format    # Format code
-make clean     # Clean cache files
-make docker    # Build Docker image
+mypy app/
 ```
 
----
+## Error Handling
 
-## Testing
+The API returns consistent error responses:
 
-### Run All Tests
-
-```bash
-pytest
+```json
+{
+  "success": false,
+  "message": "Error description",
+  "errors": [
+    {
+      "field": "field_name",
+      "message": "Detailed error message",
+      "type": "error_type"
+    }
+  ]
+}
 ```
 
-### Run Specific Test File
+## Performance
 
-```bash
-pytest tests/test_players.py
-```
-
-### Run with Coverage
-
-```bash
-pytest --cov=app --cov-report=html
-```
-
-Coverage report will be in `htmlcov/index.html`.
-
-### Run with Verbose Output
-
-```bash
-pytest -v
-```
-
----
-
-## Docker
-
-### Build Image
-
-```bash
-docker build -t fpl-optimizer-backend .
-```
-
-### Run Container
-
-```bash
-docker run -p 8000:8000 --env-file .env fpl-optimizer-backend
-```
-
-### Docker Compose
-
-```bash
-# Start all services
-docker-compose up
-
-# Start in background
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
----
-
-## Deployment
-
-### Production Setup
-
-1. **Set Environment Variables:**
-
-```env
-ENVIRONMENT=production
-DEBUG=false
-LOG_LEVEL=WARNING
-REDIS_ENABLED=true
-REDIS_URL=redis://production-redis:6379
-DATABASE_URL=postgresql://user:pass@db:5432/fpl_optimizer
-```
-
-2. **Install Production Dependencies:**
-
-```bash
-pip install -r requirements-prod.txt
-```
-
-3. **Run with Gunicorn:**
-
-```bash
-gunicorn app.main:app \
-  -w 4 \
-  -k uvicorn.workers.UvicornWorker \
-  --bind 0.0.0.0:8000 \
-  --access-logfile - \
-  --error-logfile -
-```
-
-### Health Checks
-
-For Kubernetes/Docker health checks:
-
-- **Liveness:** `GET /api/v1/health/live`
-- **Readiness:** `GET /api/v1/health/ready`
-
-### Monitoring
-
-Prometheus metrics available at:
-```
-GET /api/v1/health/metrics
-```
-
----
-
-## Design Patterns
-
-### Clean Architecture
-
-- **API Layer** - HTTP handling only, minimal logic
-- **Business Layer** - Core business logic and orchestration
-- **Repository Layer** - Pure data access, no business logic
-- **Domain Layer** - Entities and interfaces
-
-### Key Patterns
-
-- **Repository Pattern** - Abstract data access
-- **Dependency Injection** - Loose coupling via containers
-- **DTO Pattern** - Separate API contracts from domain models
-- **Cache-aside** - Check cache, fallback to source, update cache
-- **Retry with Backoff** - Resilient external API calls
-
----
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue: Module not found**
-```bash
-# Solution: Ensure virtual environment is activated
-source venv/bin/activate  # macOS/Linux
-venv\Scripts\activate     # Windows
-```
-
-**Issue: Port already in use**
-```bash
-# Solution: Use different port
-uvicorn app.main:app --port 8001
-```
-
-**Issue: FPL API timeout**
-```bash
-# Solution: Increase timeout in .env
-FPL_API_TIMEOUT=60
-```
-
-**Issue: Cache not working**
-```bash
-# Solution: Enable cache in .env
-CACHE_ENABLED=true
-```
-
----
-
-## Contributing
-
-See main [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines.
-
-**Backend-specific guidelines:**
-
-- Follow PEP 8 style guide
-- Use `black` for code formatting
-- Use `mypy` for type checking
-- Write tests for all new features
-- Update API documentation (docstrings)
-
----
+- **Caching**: Redis caching with configurable TTL (default: 5 minutes)
+- **Retry Logic**: Automatic retries for failed FPL API requests
+- **Async/Await**: Fully asynchronous for optimal performance
+- **Connection Pooling**: Efficient HTTP connection management
 
 ## License
 
-MIT License - See [LICENSE](../LICENSE)
-
----
-
-## Additional Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Pydantic Documentation](https://docs.pydantic.dev/)
-- [FPL API Documentation](https://fantasy.premierleague.com/api/)
+MIT License

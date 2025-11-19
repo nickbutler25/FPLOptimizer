@@ -1,0 +1,202 @@
+<div class="transfer-optimizer">
+  <div class="optimizer-header">
+    <h3 class="optimizer-title">Transfer Optimizer</h3>
+    <button
+      (click)="toggleSettings()"
+      class="btn-icon"
+      title="Settings"
+    >
+      ⚙️
+    </button>
+  </div>
+
+  <!-- Settings Panel -->
+  <div *ngIf="showSettings" class="settings-panel">
+    <div class="settings-grid">
+      <div class="setting-item">
+        <label for="numGameweeks">Gameweeks to optimize:</label>
+        <input
+          type="number"
+          id="numGameweeks"
+          [(ngModel)]="numGameweeks"
+          min="1"
+          max="10"
+          [disabled]="isLoading"
+        />
+      </div>
+
+      <div class="setting-item">
+        <label for="freeTransfers">Free transfers available:</label>
+        <input
+          type="number"
+          id="freeTransfers"
+          [(ngModel)]="freeTransfers"
+          min="0"
+          max="5"
+          [disabled]="isLoading"
+        />
+      </div>
+
+      <div class="setting-item">
+        <label for="discountFactor">Discount factor:</label>
+        <input
+          type="number"
+          id="discountFactor"
+          [(ngModel)]="discountFactor"
+          min="0.5"
+          max="1.0"
+          step="0.05"
+          [disabled]="isLoading"
+        />
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Buttons -->
+  <div class="action-buttons">
+    <button
+      (click)="generatePlan()"
+      [disabled]="isLoading"
+      class="btn btn-primary"
+    >
+      <span *ngIf="!isLoading">Generate Transfer Plan</span>
+      <span *ngIf="isLoading">Optimizing...</span>
+    </button>
+
+    <button
+      *ngIf="transferPlan"
+      (click)="clearPlan()"
+      [disabled]="isLoading"
+      class="btn btn-secondary"
+    >
+      Clear
+    </button>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="error" class="error-message">
+    <span class="error-icon">⚠️</span>
+    <span>{{ error }}</span>
+  </div>
+
+  <!-- Loading Spinner -->
+  <div *ngIf="isLoading" class="loading-spinner">
+    <div class="spinner"></div>
+    <p>Running optimization... This may take up to a minute.</p>
+  </div>
+
+  <!-- Transfer Plan Results -->
+  <div *ngIf="transferPlan && !isLoading" class="transfer-plan">
+    <!-- Summary Stats -->
+    <div class="plan-summary">
+      <div class="summary-card">
+        <div class="summary-label">Current Expected Points</div>
+        <div class="summary-value">{{ formatNumber(transferPlan.current_expected_points) }}</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">Optimized Expected Points</div>
+        <div class="summary-value">{{ formatNumber(transferPlan.total_expected_points) }}</div>
+      </div>
+
+      <div class="summary-card highlight">
+        <div class="summary-label">Improvement</div>
+        <div class="summary-value improvement">+{{ formatNumber(transferPlan.improvement) }}</div>
+      </div>
+
+      <div class="summary-card">
+        <div class="summary-label">Total Transfer Cost</div>
+        <div class="summary-value cost">-{{ transferPlan.total_transfer_cost }} pts</div>
+      </div>
+    </div>
+
+    <!-- Weekly Solutions -->
+    <div class="weekly-solutions">
+      <h4 class="section-title">Weekly Transfer Recommendations</h4>
+
+      <div
+        *ngFor="let solution of transferPlan.weekly_solutions"
+        class="week-card"
+        [class.no-transfers]="!hasTransfers(solution)"
+      >
+        <div class="week-header">
+          <div class="week-label">{{ getGameweekLabel(solution) }}</div>
+          <div class="week-stats">
+            <span class="stat">{{ formatNumber(solution.expected_points) }} xP</span>
+            <span *ngIf="solution.transfer_cost > 0" class="stat cost">
+              -{{ solution.transfer_cost }} pts
+            </span>
+          </div>
+        </div>
+
+        <div class="week-content">
+          <div *ngIf="hasTransfers(solution)" class="transfers">
+            <!-- Transfers Out -->
+            <div class="transfer-group">
+              <div class="transfer-label">Out:</div>
+              <div class="transfer-list">
+                <div
+                  *ngFor="let player of solution.transfers_out"
+                  class="transfer-player out"
+                >
+                  <span class="player-name">{{ player.player_name }}</span>
+                  <span *ngIf="player.position" class="player-position">
+                    {{ player.position }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Transfers In -->
+            <div class="transfer-group">
+              <div class="transfer-label">In:</div>
+              <div class="transfer-list">
+                <div
+                  *ngFor="let player of solution.transfers_in"
+                  class="transfer-player in"
+                >
+                  <span class="player-name">{{ player.player_name }}</span>
+                  <span *ngIf="player.position" class="player-position">
+                    {{ player.position }}
+                  </span>
+                  <span *ngIf="player.cost" class="player-cost">
+                    £{{ player.cost.toFixed(1) }}m
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Transfer Stats -->
+            <div class="transfer-stats">
+              <span class="stat-item">
+                Free transfers used: {{ solution.free_transfers_used }}
+              </span>
+              <span class="stat-item">
+                Remaining: {{ solution.free_transfers_remaining }}
+              </span>
+            </div>
+          </div>
+
+          <div *ngIf="!hasTransfers(solution)" class="no-transfers-message">
+            <span>💰 Banking free transfer</span>
+            <span class="stat-item">
+              Free transfers: {{ solution.free_transfers_remaining }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help Text -->
+    <div class="help-text">
+      <p>
+        💡 <strong>Tip:</strong> The optimizer considers all {{ numGameweeks }} gameweeks together
+        to find the best transfer strategy. It accounts for free transfer rollover and
+        transfer penalties.
+      </p>
+      <p *ngIf="transferPlan.improvement < 5">
+        ⚠️ Small improvement suggests your current squad is already well-optimized!
+      </p>
+    </div>
+  </div>
+</div>

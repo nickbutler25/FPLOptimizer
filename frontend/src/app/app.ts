@@ -32,6 +32,10 @@ import {
   RiskTolerance
 } from './types/fpl.types';
 
+// Components
+import { TeamDisplay } from './team-display/team-display';
+import { RouterOutlet, RouterLink } from '@angular/router';
+
 interface AdvancedOptions {
   excludeInjured: boolean;
   excludeDoubtful: boolean;
@@ -43,7 +47,7 @@ interface AdvancedOptions {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TeamDisplay, RouterOutlet, RouterLink],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -59,6 +63,7 @@ export class App implements OnInit, OnDestroy {
   // UI State
   isOptimizing = false;
   showAdvancedOptions = false;
+  showOptimizer = false; // Hide optimizer component temporarily
   error: string | null = null;
   systemStatus: string | null = null;
   

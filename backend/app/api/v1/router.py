@@ -1,24 +1,12 @@
-"""
-API v1 Router Configuration
-Aggregates all v1 endpoints into a single router
-"""
+"""API v1 router combining all endpoints."""
 
 from fastapi import APIRouter
 
-from app.api.v1.endpoints import players, health
+from app.api.v1.endpoints import health, players, teams
 
-# Create API v1 router
 api_router = APIRouter()
 
 # Include endpoint routers
-api_router.include_router(
-    players.router,
-    prefix="/players",
-    tags=["players"]
-)
-
-api_router.include_router(
-    health.router,
-    prefix="/health",
-    tags=["health"]
-)
+api_router.include_router(health.router, prefix="", tags=["Health"])
+api_router.include_router(players.router, prefix="", tags=["Players"])
+api_router.include_router(teams.router, prefix="", tags=["Teams"])

@@ -1,57 +1,30 @@
-"""
-Dependency Injection Setup
-Centralizes dependency creation and injection for FastAPI endpoints
-"""
+"""FastAPI dependencies for dependency injection."""
 
 from typing import Annotated
 from fastapi import Depends
-import logging
 
-from app.core.config import get_settings
-from app.domain.interfaces.player_repository_interface import PlayerRepositoryInterface
-from app.repositories.repository_factory import RepositoryFactory
-from app.services.players.players_business_service import PlayersBusinessService
-from app.services.common.health_service import HealthService
-
-# ===== REPOSITORY DEPENDENCIES =====
-
-def get_player_repository() -> PlayerRepositoryInterface:
-    """
-    Create and return the appropriate player repository based on configuration.
-    This is where we decide which repository implementation to use.
-    """
-    settings = get_settings()
-    repository_type = getattr(settings, 'PLAYER_REPOSITORY_TYPE', 'fpl')
-
-    logger = logging.getLogger(__name__)
-    logger.info(f"Creating player repository of type: {repository_type}")
-
-    return RepositoryFactory.create_player_repository(repository_type)
+from app.core.container import container
+from app.services.player_service import PlayerService
+from app.services.team_service import TeamService
+from app.services.transfer_solver_service import TransferSolverService
 
 
-# ===== SERVICE DEPENDENCIES =====
-
-def get_players_service(
-        repository: Annotated[PlayerRepositoryInterface, Depends(get_player_repository)]
-) -> PlayersBusinessService:
-    """
-    Create and return the players business service with injected repository.
-    The service doesn't know which repository implementation it's using.
-    """
-    return PlayersBusinessService(repository)
+async def get_player_service() -> PlayerService:
+    """Get player service instance."""
+    return container.player_service()
 
 
-def get_health_service(
-        repository: Annotated[PlayerRepositoryInterface, Depends(get_player_repository)]
-) -> HealthService:
-    """
-    Create and return the health service with injected repository.
-    """
-    return HealthService(repository)
+async def get_team_service() -> TeamService:
+    """Get team service instance."""
+    return container.team_service()
 
 
-# ===== TYPED DEPENDENCIES FOR ENDPOINTS =====
+async def get_transfer_solver_service() -> TransferSolverService:
+    """Get transfer solver service instance."""
+    return container.transfer_solver_service()
 
-# Type aliases for cleaner endpoint signatures
-PlayersServiceDep = Annotated[PlayersBusinessService, Depends(get_players_service)]
-HealthServiceDep = Annotated[HealthService, Depends(get_health_service)]
+
+# Type aliases for dependency injection
+PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
+TeamServiceDep = Annotated[TeamService, Depends(get_team_service)]
+TransferSolverServiceDep = Annotated[TransferSolverService, Depends(get_transfer_solver_service)]

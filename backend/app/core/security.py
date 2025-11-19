@@ -1,89 +1,69 @@
-"""
-Security Utilities and Configuration
-Authentication, authorization, and security helpers
-"""
+"""Security utilities for authentication and authorization."""
 
-import secrets
-import hashlib
-from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+from typing import Optional
+from jose import JWTError, jwt
+from passlib.context import CryptContext
+from fastapi import HTTPException, Security, status
+from fastapi.security import APIKeyHeader
 
-from app.core.config import get_settings
+from app.core.config import settings
 
+# Password hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-def generate_secret_key(length: int = 32) -> str:
-    """
-    Generate a cryptographically secure secret key
-
-    Args:
-        length: Length of the secret key in bytes
-
-    Returns:
-        Base64 encoded secret key
-    """
-    return secrets.token_urlsafe(length)
+# API Key header
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
-def hash_string(value: str, salt: str = None) -> str:
-    """
-    Hash a string value with optional salt
-
-    Args:
-        value: String to hash
-        salt: Optional salt value
-
-    Returns:
-        Hexadecimal hash string
-    """
-    if salt:
-        value = f"{value}{salt}"
-
-    return hashlib.sha256(value.encode()).hexdigest()
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify a password against a hash."""
+    return pwd_context.verify(plain_password, hashed_password)
 
 
-def generate_request_id() -> str:
-    """
-    Generate a unique request ID
-
-    Returns:
-        Unique request identifier
-    """
-    return secrets.token_hex(8)
+def get_password_hash(password: str) -> str:
+    """Hash a password."""
+    return pwd_context.hash(password)
 
 
-def is_safe_url(url: str, allowed_hosts: list = None) -> bool:
-    """
-    Check if a URL is safe for redirects
-
-    Args:
-        url: URL to validate
-        allowed_hosts: List of allowed hostnames
-
-    Returns:
-        True if URL is safe
-    """
-    if not url:
-        return False
-
-    # Add basic URL validation logic here
-    # This is a simplified example
-    return not url.startswith(('javascript:', 'data:', 'vbscript:'))
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    """Create a JWT access token."""
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(
+            minutes=settings.access_token_expire_minutes
+        )
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+    return encoded_jwt
 
 
-def get_cors_settings() -> Dict[str, Any]:
-    """
-    Get CORS settings from configuration
+def decode_access_token(token: str) -> dict:
+    """Decode and verify a JWT token."""
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        return payload
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
-    Returns:
-        CORS configuration dictionary
-    """
-    settings = get_settings()
 
-    return {
-        "allow_origins": settings.ALLOWED_ORIGINS,
-        "allow_methods": settings.ALLOWED_METHODS,
-        "allow_headers": ["*"],
-        "allow_credentials": True,
-        "expose_headers": ["X-Request-ID", "X-Process-Time", "X-API-Version"]
-    }
-
+async def verify_api_key(api_key: str = Security(api_key_header)) -> str:
+    """Verify the API key from request headers."""
+    if api_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="API Key is missing",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+    if api_key != settings.api_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid API Key",
+        )
+    return api_key

@@ -1,94 +1,123 @@
-"""
-Custom middleware for the API layer
-"""
+"""API middleware for request/response processing."""
 
 import time
-import uuid
-from typing import Callable
-from fastapi import Request, Response
-from fastapi.middleware.base import BaseHTTPMiddleware
 import logging
+from typing import Callable
+from fastapi import Request, Response, status
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.core.exceptions import FPLOptimizerException
+from app.schemas.responses import ErrorResponse, ErrorDetail
 
-class RequestIDMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware to add unique request ID to each request
-    """
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Generate unique request ID
-        request_id = str(uuid.uuid4())
-
-        # Add to request state
-        request.state.request_id = request_id
-
-        # Process request
-        response = await call_next(request)
-
-        # Add request ID to response headers
-        response.headers["X-Request-ID"] = request_id
-
-        return response
-
-
-class TimingMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware to add timing information to responses
-    """
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        start_time = time.time()
-
-        # Process request
-        response = await call_next(request)
-
-        # Calculate processing time
-        process_time = time.time() - start_time
-
-        # Add timing header
-        response.headers["X-Process-Time"] = f"{process_time:.4f}"
-
-        return response
+logger = logging.getLogger(__name__)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-    """
-    Middleware for structured request/response logging
-    """
-
-    def __init__(self, app):
-        super().__init__(app)
-        self.logger = logging.getLogger("api.middleware")
+    """Middleware for logging requests and responses."""
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Process request and log details.
+
+        Args:
+            request: Incoming request
+            call_next: Next middleware/endpoint
+
+        Returns:
+            Response from endpoint
+        """
+        # Start timer
         start_time = time.time()
-        request_id = getattr(request.state, 'request_id', 'unknown')
+
+        # Get request details
+        method = request.method
+        path = request.url.path
+        client_ip = request.client.host if request.client else "unknown"
 
         # Log request
-        self.logger.info(
-            f"Request started",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "url": str(request.url),
-                "client_ip": request.client.host if request.client else "unknown"
-            }
-        )
+        logger.info(f"Request: {method} {path} from {client_ip}")
 
         # Process request
         response = await call_next(request)
 
+        # Calculate duration
+        duration = time.time() - start_time
+
         # Log response
-        process_time = time.time() - start_time
-        self.logger.info(
-            f"Request completed",
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "url": str(request.url),
-                "status_code": response.status_code,
-                "process_time": f"{process_time:.4f}s"
-            }
+        logger.info(
+            f"Response: {method} {path} - Status: {response.status_code} - "
+            f"Duration: {duration:.3f}s"
         )
+
+        # Add custom headers
+        response.headers["X-Process-Time"] = str(duration)
+
+        # Disable caching for API responses
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+
+        return response
+
+
+class ErrorHandlingMiddleware(BaseHTTPMiddleware):
+    """Middleware for handling exceptions globally."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Handle exceptions and format error responses.
+
+        Args:
+            request: Incoming request
+            call_next: Next middleware/endpoint
+
+        Returns:
+            Response or error response
+        """
+        try:
+            return await call_next(request)
+        except FPLOptimizerException as e:
+            # Handle custom application exceptions
+            logger.error(f"Application error: {e.message}", exc_info=True)
+            return JSONResponse(
+                status_code=e.status_code,
+                content=ErrorResponse(
+                    success=False,
+                    message=e.message,
+                    errors=[ErrorDetail(message=e.message, type=type(e).__name__)],
+                ).model_dump(),
+            )
+        except Exception as e:
+            # Handle unexpected exceptions
+            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ErrorResponse(
+                    success=False,
+                    message="An unexpected error occurred",
+                    errors=[ErrorDetail(message=str(e), type="InternalServerError")],
+                ).model_dump(),
+            )
+
+
+class CORSSecurityMiddleware(BaseHTTPMiddleware):
+    """Middleware for adding security headers."""
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        """Add security headers to response.
+
+        Args:
+            request: Incoming request
+            call_next: Next middleware/endpoint
+
+        Returns:
+            Response with security headers
+        """
+        response = await call_next(request)
+
+        # Add security headers
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
 
         return response

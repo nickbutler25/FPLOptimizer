@@ -1,143 +1,84 @@
-"""
-Dependency Injection Container
-Centralized dependency management and configuration
-"""
+"""Dependency injection container using dependency-injector."""
 
-from typing import Dict, Any, Type, TypeVar, Optional
-from functools import lru_cache
-import logging
+from dependency_injector import containers, providers
+import httpx
 
-from app.core.config import get_settings, Settings
-from app.domain.interfaces.player_repository_interface import PlayerRepositoryInterface
-from app.repositories.repository_factory import RepositoryFactory
-from app.services.players.players_business_service import PlayersBusinessService
-from app.services.common.health_service import HealthService
-
-T = TypeVar('T')
+from app.core.config import settings
+from app.infrastructure.http.fpl_client import FPLClient
+from app.infrastructure.cache.redis_cache import RedisCache
+from app.repositories.player_repository import PlayerRepository
+from app.repositories.team_repository import TeamRepository
+from app.services.player_service import PlayerService
+from app.services.team_service import TeamService
+from app.services.expected_points_service import ExpectedPointsService
+from app.services.transfer_solver_service import TransferSolverService
 
 
-class DependencyContainer:
-    """
-    Dependency injection container for managing application dependencies
+class Container(containers.DeclarativeContainer):
+    """Dependency injection container for the application."""
 
-    Implements:
-    - Singleton pattern for shared dependencies
-    - Lazy initialization
-    - Environment-based configuration
-    - Type safety
-    """
+    # Configuration
+    config = providers.Singleton(lambda: settings)
 
-    def __init__(self, settings: Settings = None):
-        self._settings = settings or get_settings()
-        self._instances: Dict[Type, Any] = {}
-        self._logger = logging.getLogger(__name__)
+    # HTTP Client
+    http_client = providers.Singleton(
+        httpx.AsyncClient,
+        timeout=settings.fpl_api_timeout,
+        follow_redirects=True,
+    )
 
-    @property
-    def settings(self) -> Settings:
-        """Get application settings"""
-        return self._settings
+    # Infrastructure
+    fpl_client = providers.Singleton(
+        FPLClient,
+        client=http_client,
+        base_url=settings.fpl_api_base_url,
+        max_retries=settings.fpl_api_max_retries,
+    )
 
-    def get_player_repository(self) -> PlayerRepositoryInterface:
-        """
-        Get player repository instance (singleton)
-        Repository type determined by configuration
-        """
-        if PlayerRepositoryInterface not in self._instances:
-            self._logger.info(f"Creating player repository: {self._settings.PLAYER_REPOSITORY_TYPE}")
+    redis_cache = providers.Singleton(
+        RedisCache,
+        redis_url=settings.redis_url,
+        ttl=settings.redis_cache_ttl,
+    )
 
-            repository = RepositoryFactory.create_player_repository(
-                self._settings.PLAYER_REPOSITORY_TYPE
-            )
+    # Services (defined before repositories that depend on them)
+    expected_points_service = providers.Singleton(
+        ExpectedPointsService,
+        fpl_client=fpl_client,
+        cache=redis_cache,
+    )
 
-            self._instances[PlayerRepositoryInterface] = repository
+    # Repositories
+    player_repository = providers.Singleton(
+        PlayerRepository,
+        fpl_client=fpl_client,
+        cache=redis_cache,
+    )
 
-        return self._instances[PlayerRepositoryInterface]
+    team_repository = providers.Singleton(
+        TeamRepository,
+        fpl_client=fpl_client,
+        cache=redis_cache,
+        expected_points_service=expected_points_service,
+    )
 
-    def get_players_business_service(self) -> PlayersBusinessService:
-        """
-        Get players business service instance (singleton)
-        Automatically injects repository dependency
-        """
-        if PlayersBusinessService not in self._instances:
-            self._logger.info("Creating players business service")
+    # Domain Services
+    player_service = providers.Singleton(
+        PlayerService,
+        player_repository=player_repository,
+    )
 
-            repository = self.get_player_repository()
-            service = PlayersBusinessService(repository)
+    team_service = providers.Singleton(
+        TeamService,
+        team_repository=team_repository,
+    )
 
-            self._instances[PlayersBusinessService] = service
-
-        return self._instances[PlayersBusinessService]
-
-    def get_health_service(self) -> HealthService:
-        """
-        Get health service instance (singleton)
-        Automatically injects repository dependency
-        """
-        if HealthService not in self._instances:
-            self._logger.info("Creating health service")
-
-            repository = self.get_player_repository()
-            service = HealthService(repository)
-
-            self._instances[HealthService] = service
-
-        return self._instances[HealthService]
-
-    def register_instance(self, interface: Type[T], instance: T) -> None:
-        """
-        Register a specific instance for an interface
-        Useful for testing with mocks
-        """
-        self._logger.debug(f"Registering instance for {interface.__name__}")
-        self._instances[interface] = instance
-
-    def clear_cache(self) -> None:
-        """
-        Clear all cached instances
-        Useful for testing or configuration changes
-        """
-        self._logger.info("Clearing dependency container cache")
-        self._instances.clear()
-
-    def get_dependency_info(self) -> Dict[str, Any]:
-        """
-        Get information about registered dependencies
-        Useful for debugging and monitoring
-        """
-        return {
-            "settings": {
-                "environment": self._settings.ENVIRONMENT,
-                "repository_type": self._settings.PLAYER_REPOSITORY_TYPE,
-                "cache_enabled": self._settings.CACHE_ENABLED,
-                "debug": self._settings.DEBUG
-            },
-            "registered_instances": {
-                cls.__name__: type(instance).__name__
-                for cls, instance in self._instances.items()
-            },
-            "instance_count": len(self._instances)
-        }
+    transfer_solver_service = providers.Singleton(
+        TransferSolverService,
+        expected_points_service=expected_points_service,
+        player_service=player_service,
+    )
 
 
 # Global container instance
-_container: Optional[DependencyContainer] = None
-
-
-def get_container() -> DependencyContainer:
-    """
-    Get global dependency container instance
-    Implements singleton pattern
-    """
-    global _container
-    if _container is None:
-        _container = DependencyContainer()
-    return _container
-
-
-def reset_container() -> None:
-    """
-    Reset global container instance
-    Useful for testing
-    """
-    global _container
-    _container = None
+container = Container()

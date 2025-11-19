@@ -1,0 +1,163 @@
+<div class="transfer-planner-container">
+  <h1>Transfer Planner</h1>
+  <p class="subtitle">Find the best players to transfer in based on upcoming fixtures</p>
+
+  <!-- Filters -->
+  <div class="filters-container">
+    <div class="filter-group">
+      <label for="position-filter">Position:</label>
+      <select id="position-filter" [(ngModel)]="selectedPosition" class="filter-input">
+        @for (pos of positions; track pos.value) {
+          <option [value]="pos.value">{{ pos.label }}</option>
+        }
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="min-cost">Min Cost (£m):</label>
+      <input
+        type="number"
+        id="min-cost"
+        [(ngModel)]="minCost"
+        min="0"
+        max="15"
+        step="0.5"
+        class="filter-input"
+        placeholder="e.g., 5.0"
+      />
+    </div>
+
+    <div class="filter-group">
+      <label for="max-cost">Max Cost (£m):</label>
+      <input
+        type="number"
+        id="max-cost"
+        [(ngModel)]="maxCost"
+        min="0"
+        max="15"
+        step="0.5"
+        class="filter-input"
+        placeholder="e.g., 10.0"
+      />
+    </div>
+
+    <div class="filter-group">
+      <label for="search">Search:</label>
+      <input
+        type="text"
+        id="search"
+        [(ngModel)]="searchText"
+        (ngModelChange)="onSearchChange()"
+        class="filter-input"
+        placeholder="Player or team name..."
+      />
+    </div>
+
+    <div class="filter-actions">
+      <button class="btn btn-primary" (click)="applyFilters()" [disabled]="isLoading">
+        Apply Filters
+      </button>
+      <button class="btn btn-secondary" (click)="clearFilters()" [disabled]="isLoading">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading indicator -->
+  @if (isLoading) {
+    <div class="loading-container">
+      <div class="spinner"></div>
+      <p>Loading players...</p>
+    </div>
+  }
+
+  <!-- Error message -->
+  @if (error) {
+    <div class="error-message">
+      <strong>Error:</strong> {{ error }}
+    </div>
+  }
+
+  <!-- Results count -->
+  @if (!isLoading && !error && filteredPlayers.length > 0) {
+    <div class="results-info">
+      Showing <strong>{{ filteredPlayers.length }}</strong> player(s)
+    </div>
+  }
+
+  <!-- Players grid -->
+  @if (!isLoading && !error) {
+    <div class="players-grid">
+      <table class="players-table">
+        <thead>
+          <tr>
+            <th class="sortable" (click)="sortBy('web_name')">
+              Player {{ getSortIcon('web_name') }}
+            </th>
+            <th class="sortable" (click)="sortBy('position')">
+              Pos {{ getSortIcon('position') }}
+            </th>
+            <th class="sortable" (click)="sortBy('team_name')">
+              Team {{ getSortIcon('team_name') }}
+            </th>
+            <th class="sortable" (click)="sortBy('now_cost')">
+              Cost {{ getSortIcon('now_cost') }}
+            </th>
+            <th class="sortable" (click)="sortBy('total_points')">
+              Total Pts {{ getSortIcon('total_points') }}
+            </th>
+            <th class="sortable gw-col" (click)="sortBy('expected_points_gw1')">
+              GW+1 {{ getSortIcon('expected_points_gw1') }}
+            </th>
+            <th class="gw-col">GW+2</th>
+            <th class="gw-col">GW+3</th>
+            <th class="gw-col">GW+4</th>
+            <th class="gw-col">GW+5</th>
+            <th class="sortable total-col" (click)="sortBy('expected_points_total')">
+              5GW Total {{ getSortIcon('expected_points_total') }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (player of filteredPlayers; track player.id) {
+            <tr>
+              <td class="player-name">
+                <div class="player-info">
+                  <span class="name">{{ player.web_name }}</span>
+                  @if (player.status !== 'a') {
+                    <span class="status-badge" [class.injured]="player.status === 'i'" [class.doubtful]="player.status === 'd'">
+                      {{ player.status === 'i' ? 'INJ' : player.status === 'd' ? 'DOUBT' : player.status.toUpperCase() }}
+                    </span>
+                  }
+                </div>
+              </td>
+              <td>
+                <span class="position-badge" [ngClass]="getPositionClass(player.element_type)">
+                  {{ getPositionName(player.element_type) }}
+                </span>
+              </td>
+              <td>{{ player.team_name }}</td>
+              <td>{{ getPlayerCost(player) }}</td>
+              <td>{{ player.total_points }}</td>
+              <td class="gw-points">{{ player.expected_points_gw1.toFixed(1) }}</td>
+              <td class="gw-points">{{ player.expected_points_gw2.toFixed(1) }}</td>
+              <td class="gw-points">{{ player.expected_points_gw3.toFixed(1) }}</td>
+              <td class="gw-points">{{ player.expected_points_gw4.toFixed(1) }}</td>
+              <td class="gw-points">{{ player.expected_points_gw5.toFixed(1) }}</td>
+              <td class="total-points">
+                <strong>{{ player.expected_points_total.toFixed(1) }}</strong>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      @if (filteredPlayers.length === 0) {
+        <div class="no-results">
+          <p>No players found matching your filters.</p>
+          <button class="btn btn-secondary" (click)="clearFilters()">Clear Filters</button>
+        </div>
+      }
+    </div>
+  }
+</div>

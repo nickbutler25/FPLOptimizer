@@ -1,127 +1,233 @@
-"""
-Players API Endpoints - MINIMAL validation, focus on HTTP concerns
-"""
+"""Player endpoints."""
 
-from typing import Optional
-from fastapi import APIRouter, Query, Path, HTTPException, status
 import logging
+from typing import Optional, List
+from fastapi import APIRouter, Query, Depends
 
-from typing import Optional
-from fastapi import APIRouter, Query, Path, HTTPException, status
-import logging
+from app.api.dependencies import PlayerServiceDep
+from app.schemas.responses import PlayersResponse, BaseResponse
+from app.models.player import Player
+from app.models.player_with_fixtures import PlayerWithFixtures
+from app.core.security import verify_api_key
+from app.core.container import container
 
-from app.api.dependencies import PlayersServiceDep
-from app.schemas.requests.players_request import GetPlayersRequestDTO
-from app.schemas.responses.players_response import PlayersResponseDTO, PlayerDetailResponseDTO
-from app.core.exceptions import ValidationError, PlayerNotFoundException, FPLAPIException
-
-# Create router
-router = APIRouter()
 logger = logging.getLogger(__name__)
+
+router = APIRouter()
 
 
 @router.get(
-    "/",
-    response_model=PlayersResponseDTO,
-    summary="Get filtered players",
-    description="Get a filtered list of players from the official FPL API."
+    "/players",
+    response_model=PlayersResponse,
+    summary="Get All Players",
+    description="Retrieve all available FPL players with optional filters",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Players"],
 )
-async def get_players(
-        # Dependency injection - must come first (no default value)
-        service: PlayersServiceDep,
+async def get_all_players(
+    player_service: PlayerServiceDep,
+    position: Optional[str] = Query(
+        None,
+        description="Filter by position (Goalkeeper, Defender, Midfielder, Forward)",
+    ),
+    team_id: Optional[int] = Query(None, description="Filter by team ID", ge=1, le=20),
+    min_cost: Optional[float] = Query(
+        None, description="Minimum cost in millions (e.g., 5.0)", ge=0
+    ),
+    max_cost: Optional[float] = Query(
+        None, description="Maximum cost in millions (e.g., 13.0)", ge=0
+    ),
+) -> PlayersResponse:
+    """Get all FPL players with optional filters.
 
-        # MINIMAL validation here - just HTTP parameter parsing
-        positions: Optional[str] = Query(None, description="Comma-separated positions (GKP,DEF,MID,FWD)"),
-        teams: Optional[str] = Query(None, description="Comma-separated team names"),
-        min_cost: Optional[float] = Query(None, description="Minimum player cost"),
-        max_cost: Optional[float] = Query(None, description="Maximum player cost"),
-        min_points: Optional[int] = Query(None, description="Minimum total points"),
-        max_points: Optional[int] = Query(None, description="Maximum total points"),
-        min_form: Optional[float] = Query(None, description="Minimum form rating"),
-        available_only: Optional[bool] = Query(False, description="Only available players"),
-        min_minutes: Optional[int] = Query(None, description="Minimum minutes played"),
-        min_selected_percent: Optional[float] = Query(None, description="Minimum ownership %"),
-        max_selected_percent: Optional[float] = Query(None, description="Maximum ownership %"),
-        search_term: Optional[str] = Query(None, description="Search term"),
+    Args:
+        player_service: Injected player service
+        position: Filter by position name
+        team_id: Filter by team ID
+        min_cost: Minimum cost filter
+        max_cost: Maximum cost filter
 
-
-):
+    Returns:
+        List of players matching the filters
     """
-    API Layer: Minimal validation, just HTTP parameter parsing and delegation to business layer
+    logger.info(
+        f"GET /players - position={position}, team_id={team_id}, "
+        f"min_cost={min_cost}, max_cost={max_cost}"
+    )
+
+    players = await player_service.get_all_players(
+        position=position,
+        team_id=team_id,
+        min_cost=min_cost,
+        max_cost=max_cost,
+    )
+
+    return PlayersResponse(
+        success=True,
+        message=f"Retrieved {len(players)} players successfully",
+        data=players,
+    )
+
+
+@router.get(
+    "/players/{player_id}",
+    response_model=BaseResponse[Player],
+    summary="Get Player by ID",
+    description="Retrieve a specific player by their ID",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Players"],
+)
+async def get_player_by_id(
+    player_id: int,
+    player_service: PlayerServiceDep,
+) -> BaseResponse[Player]:
+    """Get a specific player by ID.
+
+    Args:
+        player_id: Player ID
+        player_service: Injected player service
+
+    Returns:
+        Player data
     """
-    try:
-        # Create request DTO with raw parameters
-        # NO business validation here - just pass the parameters
-        request_dto = GetPlayersRequestDTO(
-            positions=positions.split(',') if positions else None,
-            teams=teams.split(',') if teams else None,
-            min_cost=min_cost,
-            max_cost=max_cost,
-            min_points=min_points,
-            max_points=max_points,
-            min_form=min_form,
-            available_only=available_only,
-            min_minutes=min_minutes,
-            min_selected_percent=min_selected_percent,
-            max_selected_percent=max_selected_percent,
-            search_term=search_term
-        )
+    logger.info(f"GET /players/{player_id}")
 
-        logger.info(f"API: Received request for players with filters")
+    player = await player_service.get_player_by_id(player_id)
 
-        # Delegate to business service - ALL validation happens there
-        result = await service.get_players(request_dto)
-
-        return result
-
-    except ValidationError as e:
-        # Business layer validation errors
-        logger.warning(f"Validation error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=e.to_dict()
-        )
-
-    except FPLAPIException as e:
-        logger.error(f"FPL API error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"message": "FPL API unavailable", "details": str(e)}
-        )
-
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"message": "Internal server error"}
-        )
+    return BaseResponse(
+        success=True,
+        message=f"Player {player_id} retrieved successfully",
+        data=player,
+    )
 
 
-@router.get("/{player_id}", response_model=PlayerDetailResponseDTO)
-async def get_player(
-        service: PlayersServiceDep,
-        player_id: int = Path(..., ge=1, description="Player ID")
-):
+@router.get(
+    "/players/top/points",
+    response_model=PlayersResponse,
+    summary="Get Top Players by Points",
+    description="Get the top performing players by total points",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Players"],
+)
+async def get_top_players(
+    player_service: PlayerServiceDep,
+    limit: int = Query(10, description="Number of players to return", ge=1, le=100),
+) -> PlayersResponse:
+    """Get top players by total points.
+
+    Args:
+        player_service: Injected player service
+        limit: Number of top players to return
+
+    Returns:
+        List of top players
     """
-    API Layer: Minimal validation, delegate to business layer
+    logger.info(f"GET /players/top/points?limit={limit}")
+
+    players = await player_service.get_top_players_by_points(limit)
+
+    return PlayersResponse(
+        success=True,
+        message=f"Retrieved top {len(players)} players successfully",
+        data=players,
+    )
+
+
+@router.get(
+    "/players/fixtures/upcoming",
+    response_model=BaseResponse[List[PlayerWithFixtures]],
+    summary="Get All Players with Upcoming Fixture Difficulty",
+    description="Retrieve all players with expected points for the next 5 gameweeks",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Players"],
+)
+async def get_players_with_upcoming_fixtures(
+    player_service: PlayerServiceDep,
+    position: Optional[str] = Query(
+        None,
+        description="Filter by position (Goalkeeper, Defender, Midfielder, Forward)",
+    ),
+    team_id: Optional[int] = Query(None, description="Filter by team ID", ge=1, le=20),
+    min_cost: Optional[float] = Query(
+        None, description="Minimum cost in millions (e.g., 5.0)", ge=0
+    ),
+    max_cost: Optional[float] = Query(
+        None, description="Maximum cost in millions (e.g., 13.0)", ge=0
+    ),
+) -> BaseResponse[List[PlayerWithFixtures]]:
+    """Get all players with expected points for next 5 gameweeks.
+
+    Args:
+        player_service: Injected player service
+        position: Filter by position name
+        team_id: Filter by team ID
+        min_cost: Minimum cost filter
+        max_cost: Maximum cost filter
+
+    Returns:
+        List of players with expected points for upcoming fixtures
     """
-    try:
-        logger.info(f"API: Received request for player {player_id}")
+    logger.info(
+        f"GET /players/fixtures/upcoming - position={position}, team_id={team_id}, "
+        f"min_cost={min_cost}, max_cost={max_cost}"
+    )
 
-        # Delegate to business service
-        result = await service.get_player(player_id)
+    # Get all players
+    all_players = await player_service.get_all_players(
+        position=position,
+        team_id=team_id,
+        min_cost=min_cost,
+        max_cost=max_cost,
+    )
 
-        return result
+    # Get expected points service from container
+    expected_points_service = container.expected_points_service()
 
-    except PlayerNotFoundException:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"message": f"Player with ID {player_id} not found"}
+    # Calculate expected points for next 5 gameweeks
+    expected_points_map = await expected_points_service.calculate_expected_points_next_n_gameweeks(5)
+
+    # Build response with expected points
+    players_with_fixtures = []
+
+    for player in all_players:
+        player_id = player.id
+        expected_points = expected_points_map.get(player_id, [1.0, 1.0, 1.0, 1.0, 1.0])
+
+        # Ensure we have exactly 5 values
+        while len(expected_points) < 5:
+            expected_points.append(1.0)
+
+        player_with_fixtures = PlayerWithFixtures(
+            id=player.id,
+            web_name=player.web_name,
+            first_name=player.first_name,
+            second_name=player.second_name,
+            team=player.team,
+            team_name=player.team_name,
+            element_type=player.element_type,
+            position=player.position,
+            now_cost=player.now_cost,
+            total_points=player.total_points,
+            form=player.form,
+            selected_by_percent=player.selected_by_percent,
+            minutes=player.minutes,
+            status=player.status,
+            news=player.news,
+            chance_of_playing_next_round=player.chance_of_playing_next_round,
+            expected_points_gw1=expected_points[0],
+            expected_points_gw2=expected_points[1],
+            expected_points_gw3=expected_points[2],
+            expected_points_gw4=expected_points[3],
+            expected_points_gw5=expected_points[4],
+            expected_points_total=sum(expected_points[:5]),
         )
 
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"message": "Internal server error"}
-        )
+        players_with_fixtures.append(player_with_fixtures)
+
+    logger.info(f"Retrieved {len(players_with_fixtures)} players with fixture data")
+
+    return BaseResponse(
+        success=True,
+        message=f"Retrieved {len(players_with_fixtures)} players with upcoming fixtures successfully",
+        data=players_with_fixtures,
+    )
