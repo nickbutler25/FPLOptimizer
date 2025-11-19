@@ -1,6 +1,6 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist/browser",
+  "outputDirectory": "dist/frontend/browser",
   "devCommand": "npm run start",
   "installCommand": "npm install",
   "framework": "angular",
